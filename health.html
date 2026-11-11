@@ -1022,7 +1022,7 @@ document.addEventListener('DOMContentLoaded', function () {
     appKey: 'health',
     syncedKeys: ['stack:items', 'stack:version', 'stack:low', 'po_water_v1'],
     syncedPrefixes: ['stack:taken:'],
-    onApplied: function () { window.dispatchEvent(new Event('storage')); }
+    onApplied: function () { window.cloudSyncReload(); }
   });
 });
 </script>

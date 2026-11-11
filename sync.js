@@ -13,6 +13,27 @@
   const SUPABASE_URL = 'https://wrkvressribywjmsvmsy.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_vXOAfADTf6WRicVvAdpaXg_rAXJqByV';
 
+  // Reload the page so it re-renders from freshly synced localStorage.
+  // If the user is typing in a field, wait until they leave it.
+  let reloadPending = false;
+  window.cloudSyncReload = function () {
+    if (reloadPending) return;
+    reloadPending = true;
+    function isEditing() {
+      const el = document.activeElement;
+      return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' ||
+        el.tagName === 'SELECT' || el.isContentEditable);
+    }
+    function tryReload() {
+      if (isEditing()) return;
+      document.removeEventListener('focusout', onFocusOut, true);
+      location.reload();
+    }
+    function onFocusOut() { setTimeout(tryReload, 0); }
+    if (isEditing()) document.addEventListener('focusout', onFocusOut, true);
+    else tryReload();
+  };
+
   window.initCloudSync = function (config) {
     const appKey = config && config.appKey;
     const syncedKeys = (config && config.syncedKeys) || [];

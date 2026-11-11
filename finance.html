@@ -3384,7 +3384,7 @@ document.addEventListener('DOMContentLoaded', function () {
     appKey: 'finance',
     syncedKeys: ['subs', 'wishlist', 'incoming_orders', 'nw_currency', 'nw:activity', 'nw:history'],
     syncedPrefixes: ['nw:'],
-    onApplied: function () { window.dispatchEvent(new Event('storage')); }
+    onApplied: function () { window.cloudSyncReload(); }
   });
 });
 </script>

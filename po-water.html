@@ -1121,7 +1121,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initCloudSync({
     appKey: 'health',
     syncedKeys: ['po_water_v1'],
-    onApplied: function () { window.dispatchEvent(new Event('storage')); }
+    onApplied: function () { window.cloudSyncReload(); }
   });
 });
 </script>
