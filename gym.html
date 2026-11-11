@@ -143,7 +143,7 @@ img, video, canvas, svg { max-width: 100%; }
   z-index: 50;
   display: flex;
   justify-content: center;
-  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  padding: 10px max(16px, env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   background: linear-gradient(180deg, rgba(10,10,11,0) 0%, rgba(10,10,11,0.78) 38%, rgba(10,10,11,0.94) 100%);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -544,6 +544,7 @@ img, video, canvas, svg { max-width: 100%; }
   background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
   z-index: 100; align-items: center; justify-content: center;
   padding: 24px;
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
 }
 .po-modal-bg.show { display: flex; }
 .po-modal {
@@ -1075,6 +1076,8 @@ img, video, canvas, svg { max-width: 100%; }
 .wt-overlay-inner {
   max-width: 720px; margin: 0 auto;
   padding: 24px 20px 40px;
+  padding-top: max(24px, env(safe-area-inset-top));
+  padding-bottom: calc(40px + env(safe-area-inset-bottom));
 }
 .wt-overlay-h {
   display: flex; align-items: center; gap: 14px;
@@ -1140,6 +1143,7 @@ img, video, canvas, svg { max-width: 100%; }
 .wt-cam {
   position: fixed; inset: 0; background: #000; z-index: 300;
   display: none; flex-direction: column;
+  padding-top: env(safe-area-inset-top);
 }
 .wt-cam.is-open { display: flex; }
 .wt-cam-stage {
@@ -1179,6 +1183,7 @@ img, video, canvas, svg { max-width: 100%; }
   transition: opacity 0.2s;
   display: flex; flex-direction: column;
   padding: 24px 16px;
+  padding: max(24px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
 }
 .wt-viewer.is-open { opacity: 1; pointer-events: auto; }
 .wt-viewer-stage {
