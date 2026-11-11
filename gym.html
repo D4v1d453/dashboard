@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0a0a0b">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Dashboard">
 <title>Progressive Overload Coach</title>
 <script src="topbar.js" defer></script>
 
@@ -116,7 +122,7 @@ html, body {
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
   -webkit-text-size-adjust: 100%;
-  min-height: 100vh;
+  min-height: 100vh; min-height: 100dvh;
   overflow-x: hidden;
   width: 100%;
   max-width: 100vw;
@@ -1611,21 +1617,21 @@ img, video, canvas, svg { max-width: 100%; }
     </label>
     <div class="po-field" id="exStartWeightField">
       <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Starting weight</label>
-      <input type="number" id="exStartWeight" step="0.5" placeholder="20" value="20">
+      <input type="number" id="exStartWeight" step="0.5" placeholder="20" value="20" inputmode="decimal">
     </div>
     <div class="po-log-grid" id="exNumFields">
       <div class="po-field">
         <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Reps min</label>
-        <input type="number" id="exRepMin" value="6">
+        <input type="number" id="exRepMin" value="6" inputmode="numeric">
       </div>
       <div class="po-field">
         <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Reps max</label>
-        <input type="number" id="exRepMax" value="8">
+        <input type="number" id="exRepMax" value="8" inputmode="numeric">
       </div>
     </div>
     <div class="po-field" id="exStepField">
       <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Increment</label>
-      <input type="number" id="exStep" step="0.5" value="2.5">
+      <input type="number" id="exStep" step="0.5" value="2.5" inputmode="decimal">
     </div>
     <div class="po-modal-actions">
       <button class="po-btn-secondary" id="exModalCancel">Cancel</button>

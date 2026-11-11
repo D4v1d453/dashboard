@@ -54,8 +54,9 @@
   font-size: 13px; font-weight: 700; color: #FAFAFA;
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
+.topbar-water-pill, .topbar-water-add { min-height: 48px; box-sizing: border-box; }
 .topbar-water-add {
-  width: 44px;
+  width: 48px;
   border: 1px solid rgba(125, 211, 252, 0.16);
   background: linear-gradient(180deg, rgba(125, 211, 252, 0.28), rgba(110, 231, 183, 0.28));
   color: #FFFFFF; font-family: inherit;
@@ -70,7 +71,7 @@
 }
 .topbar-finance-btn {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 44px; height: 42px;
+  width: 48px; height: 48px; box-sizing: border-box;
   border: 1px solid rgba(255, 255, 255, 0.10);
   background: rgba(255, 255, 255, 0.04);
   border-radius: 12px; text-decoration: none;
@@ -91,7 +92,7 @@
   font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
 }
 .bottombar-tab {
-  flex: 1;
+  flex: 1; min-height: 52px; box-sizing: border-box;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 3px; padding: 6px 0 4px; text-decoration: none;
   color: rgba(255, 255, 255, 0.45);
@@ -115,8 +116,8 @@ body.has-bottombar {
   .topbar { padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right)); gap: 6px; }
   .topbar-water-pill { padding: 8px 11px; gap: 6px; }
   .topbar-pill-count { font-size: 12px; }
-  .topbar-water-add { width: 40px; font-size: 18px; }
-  .topbar-finance-btn { width: 40px; height: 38px; }
+  .topbar-water-add { width: 48px; font-size: 18px; }
+  .topbar-finance-btn { width: 48px; height: 48px; }
   .topbar-finance-icon { font-size: 18px; }
   .bottombar-tab-icon { font-size: 22px; }
   .bottombar-tab { font-size: 10px; }
@@ -139,17 +140,53 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
   }
   .modal, .po-modal {
     width: 100% !important; max-width: 100% !important;
-    max-height: 100vh !important; height: 100vh !important;
+    max-height: 100vh !important; max-height: 100dvh !important; height: 100vh !important; height: 100dvh !important;
     border-radius: 0 !important;
     padding-top: max(20px, env(safe-area-inset-top)) !important;
     padding-bottom: max(28px, env(safe-area-inset-bottom)) !important;
     overflow-y: auto !important; overscroll-behavior: contain;
   }
 }
+.topbar-install-btn {
+  display: none; align-items: center; justify-content: center;
+  min-height: 48px; padding: 0 14px; box-sizing: border-box;
+  margin-right: auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #FAFAFA; font: inherit; font-size: 13px; font-weight: 600;
+  border-radius: 12px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.topbar-install-btn.show { display: inline-flex; }
+@media (display-mode: standalone) { .topbar-install-btn { display: none !important; } }
+`;
+
+  // -------- App-wide mobile/PWA CSS (every page, incl. finance + embeds) --------
+  const globalCss = `
+:root { color-scheme: dark; }
+html, body { overscroll-behavior: none; }
+* { -webkit-tap-highlight-color: transparent; }
+.topbar, .bottombar, .bottom-tabs, .tabbar, button, .topbar-pill-count {
+  -webkit-user-select: none; user-select: none;
+}
+@media (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea {
+    font-size: 16px !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 `;
 
   const topbarHtml = `
 <header class="topbar" id="topbar" role="navigation" aria-label="Quick actions">
+  <button class="topbar-install-btn" id="topbarInstall" type="button" aria-label="Install app">Install app</button>
   <div class="topbar-water-wrap">
     <a href="health.html#water" class="topbar-water-pill" id="topbarWater" aria-label="Water progress">
       <span class="topbar-pill-dot"></span>
@@ -188,6 +225,55 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
     if (p.endsWith('health.html')) return 'health';
     if (p.endsWith('gym.html')) return 'fitness';
     return 'main';
+  }
+
+  function injectGlobalStyle() {
+    if (document.getElementById('app-global-style')) return;
+    const style = document.createElement('style');
+    style.id = 'app-global-style';
+    style.textContent = globalCss;
+    document.head.appendChild(style);
+  }
+
+  // -------- PWA: service worker + install prompt --------
+  function registerServiceWorker() {
+    if (!('serviceWorker' in navigator) || isEmbedded()) return;
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') return;
+    const reg = () => navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+    if (document.readyState === 'complete') reg();
+    else window.addEventListener('load', reg, { once: true });
+  }
+  let deferredInstallPrompt = null;
+  function isStandalone() {
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+      window.navigator.standalone === true;
+  }
+  function updateInstallButton() {
+    const btn = document.getElementById('topbarInstall');
+    if (!btn) return;
+    btn.classList.toggle('show', !!deferredInstallPrompt && !isStandalone());
+  }
+  // Listen immediately — the event can fire before boot() runs.
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    updateInstallButton();
+  });
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    updateInstallButton();
+  });
+  function wireInstallButton() {
+    const btn = document.getElementById('topbarInstall');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      if (!deferredInstallPrompt) return;
+      const p = deferredInstallPrompt;
+      deferredInstallPrompt = null;
+      updateInstallButton();
+      try { p.prompt(); await p.userChoice; } catch (e) {}
+    });
+    updateInstallButton();
   }
 
   function injectStyleAndHTML() {
@@ -332,7 +418,10 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
   }
 
   function boot() {
+    injectGlobalStyle();
     injectStyleAndHTML();
+    wireInstallButton();
+    registerServiceWorker();
     const btn = document.getElementById('topbarWaterAdd');
     if (btn) btn.addEventListener('click', (e) => { e.preventDefault(); addWater(); });
     render();

@@ -17,6 +17,12 @@ Contact: rowan.wisere@gmail.com
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0a0a0b">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Dashboard">
 <title>Water Coach</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="sync.js" defer></script>
@@ -82,7 +88,7 @@ html, body {
   color: var(--text-1);
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
-  min-height: 100vh;
+  min-height: 100vh; min-height: 100dvh;
 }
 .shell { max-width: 720px; margin: 0 auto; padding: 24px 16px 80px; }
 
@@ -530,7 +536,7 @@ html, body {
       <div class="field-row">
         <div class="field">
           <label>Weight</label>
-          <input type="number" id="setWeight" step="0.5" min="20" max="300">
+          <input type="number" id="setWeight" step="0.5" min="20" max="300" inputmode="decimal">
         </div>
         <div class="field">
           <label>Weight unit</label>
@@ -543,7 +549,7 @@ html, body {
       <div class="field-row">
         <div class="field">
           <label>Age</label>
-          <input type="number" id="setAge" min="13" max="100">
+          <input type="number" id="setAge" min="13" max="100" inputmode="numeric">
         </div>
         <div class="field">
           <label>Sex</label>
@@ -556,7 +562,7 @@ html, body {
       </div>
       <div class="field">
         <label>Activity (training hours per week)</label>
-        <input type="number" id="setActivity" min="0" max="40" step="0.5">
+        <input type="number" id="setActivity" min="0" max="40" step="0.5" inputmode="decimal">
       </div>
     </div>
 
@@ -574,11 +580,11 @@ html, body {
       <div class="field-row">
         <div class="field">
           <label>Bottle size (ml)</label>
-          <input type="number" id="setBottleMl" min="100" max="2000" step="50">
+          <input type="number" id="setBottleMl" min="100" max="2000" step="50" inputmode="numeric">
         </div>
         <div class="field">
           <label>Glass size (ml)</label>
-          <input type="number" id="setGlassMl" min="100" max="500" step="10">
+          <input type="number" id="setGlassMl" min="100" max="500" step="10" inputmode="numeric">
         </div>
       </div>
     </div>
@@ -587,7 +593,7 @@ html, body {
       <h4>Caffeine</h4>
       <div class="field">
         <label>Average caffeine per day (mg)</label>
-        <input type="number" id="setCaffeine" min="0" max="1000" step="10">
+        <input type="number" id="setCaffeine" min="0" max="1000" step="10" inputmode="numeric">
         <div style="font-size:11px;color:var(--text-3);margin-top:4px;line-height:1.4">
           ~1 cup of coffee = 95mg · espresso shot = 75mg · energy drink = 160mg.
           Above 200mg/day starts to add a small water requirement.
@@ -980,7 +986,7 @@ html, body {
       +   '<div class="sub-row-meta">+ ' + fmtMl(subExtraMl(s)) + ' / day · ' + escape(s.cat || '') + '</div>'
       + '</div>'
       + '<div class="sub-row-dose">'
-      +   '<input type="number" class="sub-dose-input" data-i="' + i + '" min="0" step="0.5" value="' + (s.dose != null ? s.dose : s.defaultDose) + '">'
+      +   '<input type="number" class="sub-dose-input" data-i="' + i + '" min="0" step="0.5" value="' + (s.dose != null ? s.dose : s.defaultDose) + '" inputmode="decimal">'
       +   '<span class="sub-dose-unit">' + escape(s.unit || '') + '</span>'
       + '</div>'
       + '<button class="sub-row-del" data-i="' + i + '" aria-label="Remove">×</button>'

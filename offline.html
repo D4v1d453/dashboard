@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0b">
+<title>Offline</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #0a0a0b; color: #FAFAFA;
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif; }
+  body { display: flex; align-items: center; justify-content: center; text-align: center;
+    min-height: 100vh; min-height: 100dvh;
+    padding: env(safe-area-inset-top) 24px env(safe-area-inset-bottom); box-sizing: border-box; }
+  h1 { font-size: 20px; margin: 0 0 8px; }
+  p { color: rgba(255,255,255,0.55); font-size: 15px; margin: 0 0 24px; }
+  button { min-height: 48px; padding: 0 24px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06); color: #FAFAFA; font: inherit; font-size: 16px;
+    -webkit-tap-highlight-color: transparent; }
+</style>
+</head>
+<body>
+  <div>
+    <h1>You're offline</h1>
+    <p>This page hasn't been saved on this device yet.<br>Reconnect and try again.</p>
+    <button type="button" onclick="location.reload()">Retry</button>
+  </div>
+</body>
+</html>
