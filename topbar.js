@@ -210,6 +210,9 @@ html, body { overscroll-behavior: none; }
   <a href="gym.html" class="bottombar-tab" data-page="fitness">
     <span class="bottombar-tab-icon">💪</span><span>Fitness</span>
   </a>
+  <a href="uni.html" class="bottombar-tab" data-page="uni">
+    <span class="bottombar-tab-icon">🎓</span><span>Uni</span>
+  </a>
 </nav>`;
 
   function isFinancePage() {
@@ -224,6 +227,7 @@ html, body { overscroll-behavior: none; }
     const p = (window.location.pathname || '').toLowerCase();
     if (p.endsWith('health.html')) return 'health';
     if (p.endsWith('gym.html')) return 'fitness';
+    if (p.endsWith('uni.html')) return 'uni';
     return 'main';
   }
 

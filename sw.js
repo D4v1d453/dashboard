@@ -8,7 +8,7 @@
 //   CDN libraries (jsDelivr)  → stale-while-revalidate
 //   Supabase / other APIs     → network-only (data lives in localStorage + sync)
 // =============================================================
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const SHELL_CACHE = 'shell-' + CACHE_VERSION;
 const RUNTIME_CACHE = 'runtime-' + CACHE_VERSION;
 
@@ -19,6 +19,7 @@ const SHELL = [
   '/gym.html',
   '/finance.html',
   '/po-water.html',
+  '/uni.html',
   '/offline.html',
   '/topbar.js',
   '/sync.js',

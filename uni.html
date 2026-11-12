@@ -1,0 +1,1569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050506">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Dashboard">
+<title>University</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+<style>
+:root {
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: #050506;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  min-height: 100vh; min-height: 100dvh;
+  position: relative;
+  overflow-x: hidden;
+  padding: max(28px, env(safe-area-inset-top)) 20px 60px;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(circle at 82% 14%, rgba(224, 118, 88, 0.16), transparent 45%),
+    radial-gradient(circle at 18% 90%, rgba(180, 180, 200, 0.06), transparent 50%);
+  filter: blur(40px);
+  pointer-events: none;
+  z-index: -2;
+  animation: drift 36s ease-in-out infinite alternate;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px;
+  pointer-events: none;
+  z-index: -1;
+}
+@keyframes drift {
+  0%   { transform: translate3d(0,0,0); }
+  100% { transform: translate3d(-22px, 14px, 0); }
+}
+
+.page { max-width: 1100px; margin: 0 auto; }
+
+/* ===== Title ===== */
+.dash-title {
+  margin: 0 0 4px;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+.dash-sub {
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  margin-bottom: 18px;
+}
+@media (max-width: 480px) { .dash-title { font-size: 22px; } }
+
+.back-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-bottom: 14px;
+  padding: 8px 14px;
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.04);
+  color: var(--text-primary);
+  font-size: 13px; font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+.back-link:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.18); }
+
+/* ===== Performance ring (same as the home Day Ring) ===== */
+.day-ring-wrap {
+  display: flex; flex-wrap: wrap;
+  align-items: center; justify-content: center;
+  gap: 26px;
+  padding: 22px;
+  margin-bottom: 22px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+}
+.day-ring { position: relative; width: 168px; height: 168px; flex-shrink: 0; }
+.day-ring svg { width: 100%; height: 100%; display: block; }
+.day-ring-track { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 8; }
+.day-ring-fill {
+  fill: none; stroke-width: 8; stroke-linecap: round;
+  transform: rotate(-90deg); transform-origin: 60px 60px;
+  transition: stroke 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+              stroke-dashoffset 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.day-ring-overlay {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.day-ring-percent {
+  font-size: 40px; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  color: var(--text-primary); line-height: 1;
+}
+.day-ring-phase {
+  margin-top: 5px;
+  font-family: var(--font-mono);
+  font-size: 9.5px; font-weight: 800;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.day-ring-clock { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-tertiary); margin-top: 2px; }
+.perf-text { display: flex; flex-direction: column; gap: 10px; min-width: 0; max-width: 420px; flex: 1 1 280px; }
+.perf-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.perf-stat {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.06);
+  min-width: 0;
+}
+.perf-stat-num {
+  font-size: 24px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  color: var(--text-primary); line-height: 1.1;
+}
+.perf-stat-label {
+  font-size: 9.5px; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+.perf-line { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); }
+.perf-line b { color: var(--text-primary); font-weight: 700; }
+@media (max-width: 480px) {
+  .day-ring { width: 144px; height: 144px; }
+  .day-ring-percent { font-size: 32px; }
+  .day-ring-wrap { gap: 18px; padding: 18px 16px; }
+  .perf-stat { padding: 9px 10px; }
+  .perf-stat-num { font-size: 20px; }
+  .perf-stat-label { letter-spacing: 0.08em; }
+}
+
+/* ===== Section titles ===== */
+.section { margin-top: 8px; margin-bottom: 22px; }
+.section-title {
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary);
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 12px;
+}
+.section-title::before {
+  content: ''; width: 18px; height: 1px;
+  background: var(--text-tertiary); opacity: 0.6;
+}
+.section-title::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent);
+}
+
+/* ===== Cards ===== */
+.gm-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 14px;
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+  overflow: hidden;
+}
+.gm-eyebrow {
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+.empty-state {
+  text-align: center;
+  font-size: 12px; font-style: italic;
+  color: var(--text-tertiary);
+  padding: 14px 0;
+}
+
+/* ===== Subject cards ===== */
+.subj-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+.subj-card {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 18px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+  text-decoration: none; color: inherit;
+  border: 1px solid transparent;
+  transition: background 0.2s, border-color 0.2s, transform 0.1s;
+}
+.subj-card:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.08); }
+.subj-card:active { transform: scale(0.99); }
+.subj-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.subj-name-wrap { min-width: 0; }
+.subj-short {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+.subj-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.subj-name {
+  font-size: 16px; font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+.grade-pill {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 13px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+.grade-pill.pass { color: var(--success); background: rgba(107,227,164,0.08); border-color: rgba(107,227,164,0.25); }
+.grade-pill.fail { color: var(--danger);  background: rgba(255,107,107,0.08); border-color: rgba(255,107,107,0.25); }
+.prog-track {
+  position: relative;
+  height: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.prog-doing, .prog-done {
+  position: absolute; top: 0; bottom: 0; left: 0;
+  border-radius: 3px;
+  transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.prog-doing { background: rgba(242,192,99,0.55); }
+.prog-done  { background: #6BE3A4; box-shadow: 0 0 6px rgba(107,227,164,0.40); }
+.subj-meta {
+  display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+.subj-meta b { color: var(--text-secondary); font-weight: 700; }
+.subj-next {
+  font-size: 12px; color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.subj-next .when { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); }
+.subj-next .when.soon { color: var(--warning); }
+.subj-next .when.late { color: var(--danger); }
+
+/* ===== Item rows (upcoming / tasks) ===== */
+.item-list { list-style: none; margin: 0; padding: 0; }
+.gm-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  margin-bottom: 6px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  transition: background 0.2s, opacity 0.3s;
+}
+.gm-row:hover { background: rgba(255,255,255,0.06); }
+.gm-row.is-done { opacity: 0.45; }
+.gm-row.is-done .item-title { text-decoration: line-through; text-decoration-color: rgba(255,255,255,0.4); }
+.gm-check {
+  appearance: none; -webkit-appearance: none;
+  width: 22px; height: 22px; flex-shrink: 0;
+  margin: 0;
+  border: 1.5px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.28);
+  border-radius: 7px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.25s;
+}
+.gm-check:checked { background: #6BE3A4; border-color: #6BE3A4; box-shadow: 0 0 12px rgba(107,227,164,0.40); }
+.gm-check:checked::after {
+  content: '';
+  position: absolute; left: 6px; top: 2px;
+  width: 6px; height: 11px;
+  border: solid #0A0A0B;
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg);
+}
+.item-body { flex: 1; min-width: 0; cursor: pointer; }
+.item-title {
+  font-size: 14px; color: var(--text-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.item-sub {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 3px;
+  font-size: 11px; color: var(--text-tertiary);
+}
+.tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 9.5px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.tag-type {
+  padding: 2px 7px; border-radius: 999px;
+  background: rgba(255,255,255,0.05);
+}
+.tag-type.exam { color: #FFB4A0; background: rgba(224,118,88,0.12); }
+.when-chip {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.04);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.when-chip.soon { color: var(--warning); background: rgba(242,192,99,0.10); }
+.when-chip.late { color: var(--danger); background: rgba(255,107,107,0.10); }
+.when-chip.none { color: var(--text-tertiary); }
+
+/* ===== Inputs / buttons ===== */
+.gm-input-wrap {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  margin-top: 14px; padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.gm-input, .gm-select {
+  flex: 1; min-width: 0;
+  padding: 11px 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  background: rgba(0,0,0,0.28);
+  color: var(--text-primary);
+  font-family: inherit; font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+.gm-select { flex: 0 0 auto; max-width: 150px; appearance: none; -webkit-appearance: none; cursor: pointer; }
+.gm-select option { background: #121214; }
+.gm-input::placeholder { color: var(--text-tertiary); }
+.gm-input:focus, .gm-select:focus { border-color: rgba(255,255,255,0.28); background: rgba(0,0,0,0.36); }
+input[type="date"].gm-input { color-scheme: dark; }
+.gm-add {
+  padding: 11px 20px;
+  border: 0; border-radius: 12px;
+  background: linear-gradient(180deg, #FFFFFF 0%, #E8E5DD 100%);
+  color: #0A0A0B;
+  font-family: inherit; font-size: 13px; font-weight: 700;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 2px 8px rgba(0,0,0,0.35), 0 8px 22px rgba(0,0,0,0.25);
+  transition: transform 0.1s, filter 0.15s;
+}
+.gm-add:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.gm-add:active { transform: translateY(0); }
+.gm-polish {
+  padding: 11px 18px;
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.04);
+  color: var(--text-primary);
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.gm-polish:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.18); }
+.card-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.card-head .gm-eyebrow { margin-bottom: 0; }
+.mini-btn {
+  padding: 7px 12px;
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  color: var(--text-primary);
+  font-family: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer;
+}
+.mini-btn:hover { background: rgba(255,255,255,0.08); }
+.link-btn {
+  border: 0; background: transparent; padding: 6px 0;
+  color: var(--text-tertiary);
+  font-family: inherit; font-size: 11px; font-weight: 600;
+  text-decoration: underline; cursor: pointer;
+}
+.link-btn:hover { color: var(--text-secondary); }
+
+/* ===== Subject page: summary ===== */
+.subj-summary {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;
+  margin-bottom: 22px;
+}
+.sum-box {
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+  min-width: 0;
+}
+.sum-num {
+  font-size: 34px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.045em;
+  color: var(--text-primary); line-height: 1;
+}
+.sum-num small { font-family: var(--font-mono); font-size: 14px; font-weight: 500; color: var(--text-tertiary); letter-spacing: 0; }
+.sum-num.pass { color: var(--success); }
+.sum-num.fail { color: var(--danger); }
+.sum-sub { margin-top: 8px; font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); }
+@media (max-width: 600px) {
+  .subj-summary { grid-template-columns: 1fr 1fr; }
+  .subj-summary .sum-box:last-child { grid-column: 1 / -1; }
+  .sum-num { font-size: 28px; }
+}
+
+/* ===== Topics ===== */
+.block { margin-bottom: 16px; }
+.block:last-child { margin-bottom: 0; }
+.block-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  margin-bottom: 8px;
+}
+.block-title { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.block-title .num { font-family: var(--font-mono); color: var(--text-tertiary); margin-right: 6px; }
+.block-count { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.block .prog-track { height: 4px; margin-bottom: 10px; }
+.topic-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px;
+  margin-bottom: 5px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.topic-row.st-doing { background: rgba(242,192,99,0.07); box-shadow: inset 3px 0 0 0 #F2C063; }
+.topic-row.st-done { opacity: 0.55; }
+.topic-num { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); width: 30px; flex-shrink: 0; }
+.topic-body { flex: 1; min-width: 0; }
+.topic-title { font-size: 13.5px; color: var(--text-primary); line-height: 1.35; }
+.topic-detail { font-size: 11.5px; color: var(--text-tertiary); margin-top: 3px; line-height: 1.4; }
+.status-btn {
+  flex-shrink: 0;
+  min-width: 86px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  color: var(--text-tertiary);
+  font-family: inherit; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.10em; text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.status-btn.st-doing { color: var(--warning); border-color: rgba(242,192,99,0.35); background: rgba(242,192,99,0.10); }
+.status-btn.st-done  { color: var(--success); border-color: rgba(107,227,164,0.35); background: rgba(107,227,164,0.10); }
+.legend { font-size: 11px; color: var(--text-tertiary); margin: -4px 0 14px; }
+
+/* ===== Assessment ===== */
+.comp-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.comp-row.below { border-color: rgba(255,107,107,0.35); }
+.comp-body { flex: 1; min-width: 0; cursor: pointer; }
+.comp-name { font-size: 14px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.comp-sub { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 3px; font-size: 11px; color: var(--text-tertiary); }
+.comp-weight { font-family: var(--font-mono); font-weight: 700; color: var(--text-secondary); }
+.comp-warn { color: var(--danger); font-weight: 600; }
+.mark-wrap { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.mark-input {
+  width: 64px;
+  padding: 9px 8px;
+  text-align: center;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  background: rgba(0,0,0,0.28);
+  color: var(--text-primary);
+  font-family: var(--font-mono); font-size: 14px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+.mark-input:focus { border-color: rgba(255,255,255,0.28); background: rgba(0,0,0,0.36); }
+.mark-input.invalid { border-color: rgba(255,107,107,0.5); }
+.mark-max { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); }
+.grade-foot {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  margin-top: 14px; padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.grade-big {
+  font-size: 42px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.045em;
+  color: var(--text-primary); line-height: 1;
+}
+.grade-big.pass { color: var(--success); }
+.grade-big.fail { color: var(--danger); }
+.grade-big small { font-family: var(--font-mono); font-size: 16px; font-weight: 500; color: var(--text-tertiary); letter-spacing: 0; }
+.grade-lines { display: flex; flex-direction: column; gap: 4px; font-family: var(--font-mono); font-size: 11.5px; color: var(--text-tertiary); text-align: right; }
+.grade-lines b { color: var(--text-secondary); }
+.grade-lines .warn { color: var(--warning); }
+.rule-note {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.025);
+  font-size: 11.5px; line-height: 1.5;
+  color: var(--text-tertiary);
+}
+.foot-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; align-items: center; }
+
+/* ===== Modal (same pattern as gym.html) ===== */
+.po-modal-bg {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
+  z-index: 100; align-items: center; justify-content: center;
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+}
+.po-modal-bg.show { display: flex; }
+.po-modal {
+  width: 100%; max-width: 420px;
+  background: #121214;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 16px;
+  padding: 22px; max-height: 88vh; overflow-y: auto;
+}
+.po-modal h3 { margin: 0 0 16px; font-size: 17px; font-weight: 700; color: var(--text-primary); }
+.po-field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.po-field > label {
+  font-size: 11px; color: var(--text-tertiary); font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase;
+}
+.po-field .gm-select { max-width: none; flex: 1; }
+.po-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.po-modal-seg {
+  display: flex; gap: 4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px; padding: 3px;
+}
+.po-modal-seg button {
+  flex: 1; padding: 9px 4px; border: none; background: transparent;
+  color: var(--text-tertiary); border-radius: 7px;
+  font-family: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer;
+}
+.po-modal-seg button.active { background: linear-gradient(180deg, #ffffff 0%, #e8e5dd 100%); color: #0a0a0b; }
+.po-modal-actions { display: flex; gap: 8px; margin-top: 18px; }
+.po-modal-actions button { flex: 1; }
+.po-delete-link {
+  display: block; text-align: center; margin-top: 12px;
+  font-size: 12px; color: var(--danger); cursor: pointer;
+  text-decoration: underline; padding: 6px;
+  background: none; border: 0; width: 100%; font-family: inherit;
+}
+.po-hint { font-size: 11px; color: var(--text-tertiary); margin-top: -4px; margin-bottom: 10px; }
+
+@media (max-width: 480px) {
+  body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
+  .gm-card { padding: 16px; }
+  .subj-grid { grid-template-columns: 1fr; }
+  .perf-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .gm-select { max-width: 120px; }
+  .status-btn { min-width: 0; padding: 7px 9px; }
+  .topic-num { width: 26px; }
+  .grade-big { font-size: 36px; }
+  .grade-lines { text-align: left; }
+}
+</style>
+</head>
+<body>
+<div class="page" id="app"></div>
+
+<!-- Item (exam / assignment / task) modal -->
+<div class="po-modal-bg" id="itemModalBg">
+  <div class="po-modal" role="dialog" aria-modal="true" aria-labelledby="itemModalTitle">
+    <h3 id="itemModalTitle">Add item</h3>
+    <div class="po-field">
+      <label>Type</label>
+      <div class="po-modal-seg" id="itemTypeSeg">
+        <button type="button" data-type="exam">Exam</button>
+        <button type="button" data-type="assignment">Assignment</button>
+        <button type="button" data-type="task">Task</button>
+      </div>
+    </div>
+    <div class="po-field">
+      <label for="itemTitle">Title</label>
+      <input class="gm-input" type="text" id="itemTitle" placeholder="e.g. Prova parcial 1" autocomplete="off">
+    </div>
+    <div class="po-field">
+      <label for="itemSubject">Subject</label>
+      <select class="gm-select" id="itemSubject"></select>
+    </div>
+    <div class="po-field">
+      <label for="itemDue">Date</label>
+      <input class="gm-input" type="date" id="itemDue">
+    </div>
+    <div class="po-modal-actions">
+      <button type="button" class="gm-polish" id="itemCancel">Cancel</button>
+      <button type="button" class="gm-add" id="itemSave">Save</button>
+    </div>
+    <button type="button" class="po-delete-link" id="itemDelete" hidden>Delete</button>
+  </div>
+</div>
+
+<!-- Assessment component modal -->
+<div class="po-modal-bg" id="compModalBg">
+  <div class="po-modal" role="dialog" aria-modal="true" aria-labelledby="compModalTitle">
+    <h3 id="compModalTitle">Assessment component</h3>
+    <div class="po-field">
+      <label for="compName">Name</label>
+      <input class="gm-input" type="text" id="compName" placeholder="e.g. Examen final" autocomplete="off">
+    </div>
+    <div class="po-field">
+      <label>Type</label>
+      <div class="po-modal-seg" id="compTypeSeg">
+        <button type="button" data-type="exam">Exam</button>
+        <button type="button" data-type="assignment">Assign.</button>
+        <button type="button" data-type="practical">Practical</button>
+        <button type="button" data-type="other">Other</button>
+      </div>
+    </div>
+    <div class="po-grid">
+      <div class="po-field">
+        <label for="compWeight">Weight %</label>
+        <input class="gm-input" type="text" inputmode="decimal" id="compWeight" placeholder="40">
+      </div>
+      <div class="po-field">
+        <label for="compMax">Out of</label>
+        <input class="gm-input" type="text" inputmode="decimal" id="compMax" placeholder="10">
+      </div>
+      <div class="po-field">
+        <label for="compMin">Min /10</label>
+        <input class="gm-input" type="text" inputmode="decimal" id="compMin" placeholder="—">
+      </div>
+    </div>
+    <div class="po-hint">Min = minimum mark (out of 10) required in this part to average. Leave empty if none.</div>
+    <div class="po-modal-actions">
+      <button type="button" class="gm-polish" id="compCancel">Cancel</button>
+      <button type="button" class="gm-add" id="compSave">Save</button>
+    </div>
+    <button type="button" class="po-delete-link" id="compDelete" hidden>Delete component</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // =============================================================
+  // Syllabus — transcribed from the UB "Pla docent" .md files
+  // (curs 2026/2027). Structure lives in code; your progress,
+  // marks and deadlines live in localStorage key 'uni:v1'.
+  // =============================================================
+  const SUBJECTS = [
+    {
+      id: 'calcul', short: 'Càlcul', name: "Càlcul d'una Variable", code: '360569', credits: 6,
+      coord: 'Pablo Bueno Gomez', color: '#7DD3FC',
+      note: "Proves parcials escrites fins al 40 % · Examen final 60 %. La participació activa a classe s'avalua positivament. Reavaluació: mateix patró que l'examen final.",
+      assessment: [
+        { name: 'Prova parcial 1', type: 'exam', weight: 20 },
+        { name: 'Prova parcial 2', type: 'exam', weight: 20 },
+        { name: 'Examen final', type: 'exam', weight: 60 },
+      ],
+      blocks: [
+        { n: '1', title: 'Teoria de Conjunts, Nombres Reals i Topologia', topics: [
+          { n: '1.1', t: 'Elements de Teoria de Conjunts' },
+          { n: '1.2', t: 'Nombres Naturals, Enters, Racionals i Reals' },
+          { n: '1.3', t: 'Topologia, Funcions Contínues i Espais Mètrics' },
+        ]},
+        { n: '2', title: 'Funcions Reals de Variable Real', topics: [
+          { n: '2.1', t: 'Funcions reals de variable real' },
+          { n: '2.2', t: 'Límits, infinitèsims i indeterminacions' },
+          { n: '2.3', t: 'Continuïtat' },
+        ]},
+        { n: '3', title: 'Càlcul diferencial en R', topics: [
+          { n: '3.1', t: "Derivada d'una funció en un punt" },
+          { n: '3.2', t: 'Propietats de la derivada' },
+          { n: '3.3', t: 'La derivada com a operador diferencial' },
+          { n: '3.4', t: 'Derivades de funcions elementals' },
+          { n: '3.5', t: 'Interpretació geomètrica de la derivada' },
+          { n: '3.6', t: 'Màxims i mínims locals' },
+          { n: '3.7', t: 'Teoremes per a funcions derivables' },
+          { n: '3.8', t: "Regla de L'Hôpital" },
+          { n: '3.9', t: 'Desenvolupaments en sèrie de Taylor' },
+        ]},
+        { n: '4', title: 'Càlcul integral en R', topics: [
+          { n: '4.1', t: 'La integral de Riemann' },
+          { n: '4.2', t: 'Teoremes fonamentals del càlcul' },
+          { n: '4.3', t: 'Càlcul de primitives', d: 'Canvi de variable, integració per parts, i altres mètodes' },
+          { n: '4.4', t: 'Integrals impròpies' },
+          { n: '4.5', t: 'Aplicacions del càlcul integral' },
+        ]},
+        { n: '5', title: 'Nombres complexos', topics: [
+          { n: '5.1', t: 'Definició i propietats del conjunt de nombres complexos' },
+          { n: '5.2', t: 'Funcions de variable complexa' },
+          { n: '5.3', t: "Teorema fonamental de l'Àlgebra" },
+        ]},
+      ],
+    },
+    {
+      id: 'algebra', short: 'Àlgebra', name: 'Àlgebra Lineal i Geometria', code: '360568', credits: 6,
+      coord: 'Maria Teresa Antoja Castelltort', color: '#C4B5FD',
+      note: 'Avaluació continuada: fins a dues proves curtes (20 %) + dos exàmens finals (40 % cada un), sense material. Reavaluació: els dos exàmens = 100 %.',
+      assessment: [
+        { name: 'Prova curta 1', type: 'exam', weight: 10 },
+        { name: 'Prova curta 2', type: 'exam', weight: 10 },
+        { name: 'Examen 1', type: 'exam', weight: 40 },
+        { name: 'Examen 2', type: 'exam', weight: 40 },
+      ],
+      blocks: [
+        { n: '1', title: 'Espais vectorials de dimensió finita', topics: [
+          { n: '1.1', t: 'Espais vectorials, subespais vectorials i combinacions lineals' },
+          { n: '1.2', t: 'Independència lineal, bases i dimensió. Components. Canvis de base' },
+          { n: '1.3', t: 'Aplicacions lineals entre espais vectorials' },
+          { n: '1.4', t: "Matriu d'una aplicació lineal. Canvis de base" },
+          { n: '1.5', t: 'Formes lineals. Espai dual. Base dual. La δ de Kronecker' },
+        ]},
+        { n: '2', title: "Determinants i sistemes d'equacions lineals", topics: [
+          { n: '2.1', t: "Rang d'una matriu. Determinant d'una matriu i dels seus menors" },
+          { n: '2.2', t: "Inversa d'una aplicació lineal. Matrius invertibles" },
+          { n: '2.3', t: "Aplicacions lineals i sistemes d'equacions lineals" },
+          { n: '2.4', t: 'Teoremes de Cramer i de Rouché' },
+        ]},
+        { n: '3', title: 'Diagonalització', topics: [
+          { n: '3.1', t: "Vectors propis i valors propis d'un endomorfisme. Polinomi característic" },
+          { n: '3.2', t: 'Diagonalització de la matriu quadrada associada a un endomorfisme', d: 'Descripció qualitativa dels diferents casos' },
+        ]},
+        { n: '4', title: 'Producte escalar', topics: [
+          { n: '4.1', t: 'Formes bilineals' },
+          { n: '4.2', t: 'Producte escalar' },
+          { n: '4.3', t: 'Ortogonalitat. Bases ortonormals' },
+          { n: '4.4', t: 'Producte vectorial a R³ en una base ortonormal' },
+          { n: '4.5', t: 'Les aplicacions ortogonals a R². Parametrització angular' },
+          { n: '4.6', t: 'Les aplicacions ortogonals a R³' },
+          { n: '4.7', t: "Conceptes tensorials de l'àlgebra lineal" },
+        ]},
+      ],
+    },
+    {
+      id: 'fonmec', short: 'FonMec', name: 'Fonaments de Mecànica', code: '360563', credits: 6,
+      coord: 'Jordi Ortín Rull', color: '#F2C063',
+      note: 'Participació, tests, proves en línia i altres activitats 30 % · Prova Q (qüestions) 30 % · Prova P (problemes) 40 %. Permès: formulari A4, calculadora i taules Schaum.',
+      assessment: [
+        { name: 'Participació, tests i proves en línia', type: 'other', weight: 30 },
+        { name: 'Prova final Q (qüestions)', type: 'exam', weight: 30 },
+        { name: 'Prova final P (problemes)', type: 'exam', weight: 40 },
+      ],
+      blocks: [
+        { n: '1', title: 'Cinemàtica', weeks: '1,5 setmanes', topics: [
+          { n: '1.1', t: "Ordres de magnitud, dimensions i sistemes d'unitats" },
+          { n: '1.2', t: 'Vectors: components cartesians. Producte escalar i vectorial' },
+          { n: '1.3', t: 'Cinemàtica en tres dimensions: posició, velocitat i acceleració' },
+          { n: '1.4', t: 'Moviment circular i moviment harmònic simple' },
+          { n: '1.5', t: 'Sistemes de referència en moviment relatiu' },
+        ]},
+        { n: '2', title: "Dinàmica d'una partícula", weeks: '3 setmanes', topics: [
+          { n: '2.1', t: 'Lleis de Newton' },
+          { n: '2.2', t: 'Forces fonamentals a la natura. Forces de contacte' },
+          { n: '2.3', t: "Sistemes de referència no inercials: forces d'inèrcia" },
+          { n: '2.4', t: "Treball i energia. Forces conservatives: energia potencial. Conservació de l'energia mecànica" },
+          { n: '2.5', t: "Anàlisi del moviment unidimensional a partir de l'energia potencial" },
+        ]},
+        { n: '3', title: 'Sistemes de partícules', weeks: '3,5 setmanes', topics: [
+          { n: '3.1', t: 'Centre de masses. Moviment del centre de masses' },
+          { n: '3.2', t: "Moment lineal, moment angular i energia cinètica d'un sistema de partícules" },
+          { n: '3.3', t: 'Impuls mecànic. Teoremes de conservació' },
+          { n: '3.4', t: 'Xocs en una i tres dimensions' },
+        ]},
+        { n: '4', title: 'Sòlid rígid', weeks: '4 setmanes', topics: [
+          { n: '4.1', t: "Rotació al voltant d'un eix fix. Moment d'inèrcia. Teorema de Steiner" },
+          { n: '4.2', t: 'Energia cinètica de translació. Energia cinètica i moment angular' },
+          { n: '4.3', t: "Moment d'una força. Equilibri estàtic del sòlid rígid. Dinàmica de rotació" },
+          { n: '4.4', t: 'Lliscament i rodolament' },
+        ]},
+        { n: '5', title: 'Gravitació', weeks: '1 setmana', topics: [
+          { n: '5.1', t: 'Camp gravitatori i teorema de Gauss' },
+        ]},
+      ],
+    },
+    {
+      id: 'quimica', short: 'Química', name: 'Química', code: '360567', credits: 6,
+      coord: 'Josep Oriol Rius Ayra', color: '#6BE3A4',
+      note: "Cal treure més d'un 4 a cada activitat (PP/PF1, PF2, TT, Lab) per fer mitjana. PP ≥ 6 elimina matèria (blocs 1–3); si no, es fa la PF1 (30 %). Lab = 50 % qüestionaris en línia + 50 % prova final de pràctiques; cal assistir a les 5 sessions.",
+      assessment: [
+        { name: 'Prova parcial (PP) / PF1', type: 'exam', weight: 30, min: 4 },
+        { name: 'Prova final 2 (PF2)', type: 'exam', weight: 40, min: 4 },
+        { name: 'Treball tutelat (TT)', type: 'assignment', weight: 15, min: 4 },
+        { name: 'Laboratori (Lab)', type: 'practical', weight: 15, min: 4 },
+      ],
+      blocks: [
+        { n: '1', title: "Estat d'agregació de la matèria", topics: [
+          { n: '1.1', t: "L'estat gasós" },
+          { n: '1.2', t: "L'estat líquid" },
+          { n: '1.3', t: "L'estat sòlid" },
+        ]},
+        { n: '2', title: 'Termodinàmica', topics: [
+          { n: '2.1', t: 'Conceptes fonamentals' },
+          { n: '2.2', t: 'Sistemes termodinàmics' },
+          { n: '2.3', t: 'Primer principi de la termodinàmica', d: 'Capacitat calorífica · Termoquímica' },
+          { n: '2.4', t: 'Segon principi de la termodinàmica', d: 'Entropia' },
+          { n: '2.5', t: 'Tercer principi de la termodinàmica', d: "Energia de Gibbs · Condicions d'equilibri i espontaneïtat" },
+        ]},
+        { n: '3', title: 'Equilibri de fases', topics: [
+          { n: '3.1', t: "Condició d'equilibri de fases", d: "La regla de les fases · Substàncies pures · L'equació de Clapeyron" },
+          { n: '3.2', t: 'Dissolucions', d: 'Propietats de les dissolucions líquid-líquid · Equilibri líquid-vapor per a dissolucions líquid-líquid · Propietats col·ligatives' },
+          { n: '3.3', t: 'Diagrames monaris i binaris', d: 'Diagrames temperatura-composició · Diagrames isomorfs · Diagrames binaris eutèctics' },
+        ]},
+        { n: '4', title: 'Equilibri químic', topics: [
+          { n: '4.1', t: 'Conceptes fonamentals' },
+          { n: '4.2', t: "Condicions d'equilibri químic d'una reacció", d: "Constant d'equilibri termodinàmica d'una reacció · Càlcul d'equilibris químics en reaccions químiques" },
+          { n: '4.3', t: "Influència de la temperatura en l'equilibri químic" },
+          { n: '4.4', t: "Desplaçament de l'equilibri químic" },
+          { n: '4.5', t: 'Equilibri químic en sistemes heterogenis ideals' },
+        ]},
+        { n: '5', title: 'Equilibri iònic', topics: [
+          { n: '5.1', t: "Tipus d'electròlits" },
+          { n: '5.2', t: "Teoria d'Arrhenius" },
+          { n: '5.3', t: "Conductivitat elèctrica de les dissolucions d'electròlits" },
+          { n: '5.4', t: 'Equilibri àcid-base', d: 'Concepte de pH · Força dels àcids i de les bases · Càlcul de pH en sistemes monopròtics · Solucions reguladores · Valoracions àcid-base · Indicadors' },
+          { n: '5.5', t: 'Equilibri de precipitació', d: "Producte de solubilitat · Efecte de l'ió comú · Precipitació selectiva · Redissolució de precipitats" },
+          { n: '5.6', t: "Equilibri d'ions complexos" },
+        ]},
+        { n: '6', title: 'Electroquímica', topics: [
+          { n: '6.1', t: 'Sistemes electroquímics' },
+          { n: '6.2', t: "Tipus d'elèctrodes" },
+          { n: '6.3', t: 'Piles galvàniques' },
+          { n: '6.4', t: 'Cel·les electrolítiques' },
+          { n: '6.5', t: 'Lleis de Faraday' },
+          { n: '6.6', t: "Potencials estàndard d'elèctrode" },
+          { n: '6.7', t: 'Aplicacions', d: "Piles d'interès tecnològic · Electròlisi · Afinament i recobriments electrolítics · Corrosió i protecció galvànica" },
+        ]},
+        { n: '7', title: 'Cinètica química', topics: [
+          { n: '7.1', t: 'Velocitat de reacció' },
+          { n: '7.2', t: 'Mecanismes de reacció' },
+          { n: '7.3', t: 'Dependència de la constant de velocitat amb la temperatura' },
+          { n: '7.4', t: 'Cinètica aplicada' },
+        ]},
+        { n: '8', title: 'Pràctiques de laboratori', topics: [
+          { n: '8.1', t: 'Reaccions químiques' },
+          { n: '8.2', t: 'Equilibri iònic' },
+          { n: '8.3', t: 'Valoracions àcid-base. pH i conductivitat de dissolucions' },
+          { n: '8.4', t: 'Electroquímica' },
+          { n: '8.5', t: 'Cinètica química' },
+        ]},
+      ],
+    },
+    {
+      id: 'info', short: 'Informàtica', name: 'Informàtica', code: '360572', credits: 6,
+      coord: 'Sonia Estrade Albiol', color: '#FF9F7A',
+      note: 'Pràctiques 45 % + prova de síntesi 45 % + problemes a classe 10 %. Cal tenir aprovades les pràctiques i la prova de síntesi per fer la mitjana.',
+      assessment: [
+        { name: 'Pràctiques', type: 'practical', weight: 45, min: 5 },
+        { name: 'Prova de síntesi', type: 'exam', weight: 45, min: 5 },
+        { name: 'Problemes a classe', type: 'assignment', weight: 10 },
+      ],
+      blocks: [
+        { n: '1', title: 'Maquinari', topics: [
+          { n: '1.1', t: "Components d'un ordinador", d: 'Placa base; processador; joc de xips; bus de sistema; memòria principal; memòria secundària; targeta gràfica; interfícies externes; connexió a xarxa' },
+          { n: '1.2', t: 'Conceptes generals de sistemes operatius', d: 'Kernels; controladors; comandes' },
+        ]},
+        { n: '2', title: 'Programació', topics: [
+          { n: '2.1', t: 'Introducció', d: 'Programació en alt nivell i interpretació; Python, iPython i Notebook' },
+          { n: '2.2', t: 'Tipus de dades', d: 'Sencers; coma flotant; caràcters; booleans' },
+          { n: '2.3', t: 'Variables', d: 'Declaració i assignació' },
+          { n: '2.4', t: 'Operadors', d: "D'assignació; matemàtics; lògics; binaris; cadenes de caràcters; composició" },
+          { n: '2.5', t: 'Comentaris' },
+          { n: '2.6', t: "Flux d'execució bàsic" },
+          { n: '2.7', t: 'Representació gràfica amb Python', d: 'Problemes gràfics' },
+          { n: '2.8', t: 'Funcions', d: 'Definició; pas de dades; reutilització i composició; àmbit de les variables; retorn de valors' },
+          { n: '2.9', t: "Control de flux d'execució", d: 'Bifurcacions; iteradors; àmbit de bloc' },
+          { n: '2.10', t: 'Conjunts de dades', d: 'Tuples; llistes; diccionaris; tuples amb noms' },
+          { n: '2.11', t: 'Biblioteques NumPy i Matplotlib', d: 'Vectors; matrius; exemples' },
+          { n: '2.12', t: 'Biblioteca SymPy', d: 'Càlcul simbòlic; resolució d’equacions; problemes' },
+          { n: '2.13', t: 'Fitxers' },
+          { n: '2.14', t: 'Conversió de guió a un programa', d: 'Notebook → .py; programació amb IDE; correcció d’errors' },
+          { n: '2.15', t: 'Entrada i sortida', d: 'Arguments; fluxos estàndard' },
+        ]},
+      ],
+    },
+  ];
+  const SUB_BY_ID = {};
+  SUBJECTS.forEach((s) => { SUB_BY_ID[s.id] = s; });
+
+  const STORE_KEY = 'uni:v1';
+  const STATUS_CYCLE = { todo: 'doing', doing: 'done', done: 'todo' };
+  const STATUS_LABEL = { todo: 'To do', doing: 'Studying', done: 'Done' };
+  const ITEM_LABEL = { exam: 'Exam', assignment: 'Assignment', task: 'Task' };
+  const COMP_LABEL = { exam: 'Exam', assignment: 'Assignment', practical: 'Practical', other: 'Other' };
+  const PASS = 5;
+
+  // ---------- state ----------
+  let state = load();
+
+  function defaultAssessment(sub) {
+    return sub.assessment.map((c, i) => ({
+      id: sub.id + '-a' + (i + 1),
+      name: c.name, type: c.type, weight: c.weight,
+      max: 10, min: c.min != null ? c.min : null, mark: null,
+    }));
+  }
+  function load() {
+    let s = null;
+    try { s = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) {}
+    if (!s || typeof s !== 'object') s = {};
+    if (!s.subjects || typeof s.subjects !== 'object') s.subjects = {};
+    if (!Array.isArray(s.items)) s.items = [];
+    SUBJECTS.forEach((sub) => {
+      const st = s.subjects[sub.id] = s.subjects[sub.id] || {};
+      if (!st.topics || typeof st.topics !== 'object') st.topics = {};
+      if (!Array.isArray(st.assessment)) st.assessment = defaultAssessment(sub);
+    });
+    s.version = 1;
+    return s;
+  }
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function esc(str) {
+    return String(str == null ? '' : str).replace(/[&<>"']/g, (c) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function parseNum(v) {
+    if (v == null) return null;
+    const s = String(v).trim().replace(',', '.');
+    if (s === '') return null;
+    const n = Number(s);
+    return isFinite(n) ? n : NaN;
+  }
+  function fmt(n, d) {
+    if (n == null || !isFinite(n)) return '—';
+    return (Math.round(n * Math.pow(10, d)) / Math.pow(10, d)).toFixed(d);
+  }
+
+  // ---------- derived ----------
+  function allTopics(sub) {
+    const out = [];
+    sub.blocks.forEach((b) => b.topics.forEach((t) => out.push(t)));
+    return out;
+  }
+  function topicStatus(subId, n) { return state.subjects[subId].topics[n] || 'todo'; }
+  function progressOf(sub, topics) {
+    const list = topics || allTopics(sub);
+    let done = 0, doing = 0;
+    list.forEach((t) => {
+      const s = topicStatus(sub.id, t.n);
+      if (s === 'done') done++; else if (s === 'doing') doing++;
+    });
+    const total = list.length;
+    return { done, doing, total, pct: total ? (done / total) * 100 : 0, doingPct: total ? (doing / total) * 100 : 0 };
+  }
+  // Grade on a 0–10 scale.
+  //   current  = weighted average of the parts already marked
+  //   secured  = points banked toward the final /10
+  function gradeOf(sub) {
+    const comps = state.subjects[sub.id].assessment;
+    let wTot = 0, wAss = 0, pts = 0;
+    const below = [];
+    comps.forEach((c) => {
+      const w = Number(c.weight) || 0;
+      wTot += w;
+      if (c.mark == null || !isFinite(c.mark)) return;
+      const max = Number(c.max) || 10;
+      const norm = Math.max(0, Math.min(10, (c.mark / max) * 10));
+      wAss += w;
+      pts += (w * norm) / 100;
+      if (c.min != null && isFinite(c.min) && norm < c.min) below.push(c);
+    });
+    return { wTot, wAss, secured: pts, current: wAss > 0 ? pts / (wAss / 100) : null, below };
+  }
+  function gradeClass(g) {
+    if (g.current == null) return '';
+    return g.current >= PASS && g.below.length === 0 ? 'pass' : 'fail';
+  }
+
+  // ---------- dates ----------
+  function todayMidnight() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+  function daysUntil(dateStr) {
+    if (!dateStr) return null;
+    const p = dateStr.split('-').map(Number);
+    if (p.length !== 3) return null;
+    const d = new Date(p[0], p[1] - 1, p[2]);
+    return Math.round((d - todayMidnight()) / 86400000);
+  }
+  function whenLabel(dateStr) {
+    const n = daysUntil(dateStr);
+    if (n == null) return { text: 'No date', cls: 'none' };
+    let text;
+    if (n === 0) text = 'Today';
+    else if (n === 1) text = 'Tomorrow';
+    else if (n === -1) text = 'Yesterday';
+    else if (n < 0) text = (-n) + 'd ago';
+    else if (n < 14) text = 'in ' + n + 'd';
+    else {
+      const p = dateStr.split('-').map(Number);
+      text = new Date(p[0], p[1] - 1, p[2]).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    }
+    return { text, cls: n < 0 ? 'late' : (n <= 3 ? 'soon' : '') };
+  }
+  function dateLong(dateStr) {
+    if (!dateStr) return '';
+    const p = dateStr.split('-').map(Number);
+    return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+  function byDue(a, b) {
+    if (!a.due && !b.due) return (a.created || 0) - (b.created || 0);
+    if (!a.due) return 1;
+    if (!b.due) return -1;
+    return a.due < b.due ? -1 : a.due > b.due ? 1 : 0;
+  }
+  function nextItemFor(subId) {
+    return state.items
+      .filter((i) => i.subjectId === subId && !i.done && i.type !== 'task' && i.due)
+      .sort(byDue)[0] || null;
+  }
+
+  // ---------- render helpers ----------
+  function progressBar(p) {
+    return '<div class="prog-track">' +
+      '<div class="prog-doing" style="width:' + (p.pct + p.doingPct).toFixed(2) + '%"></div>' +
+      '<div class="prog-done" style="width:' + p.pct.toFixed(2) + '%"></div></div>';
+  }
+  function itemRow(item, showSubject) {
+    const sub = SUB_BY_ID[item.subjectId];
+    const w = whenLabel(item.due);
+    const chip = item.done ? '' : '<span class="when-chip ' + w.cls + '">' + esc(w.text) + '</span>';
+    const subjTag = showSubject && sub
+      ? '<span class="tag"><span class="subj-dot" style="background:' + sub.color + '"></span>' + esc(sub.short) + '</span>'
+      : '';
+    const dateTxt = item.due ? '<span>' + esc(dateLong(item.due)) + '</span>' : '';
+    return '<li class="gm-row' + (item.done ? ' is-done' : '') + '">' +
+      '<input type="checkbox" class="gm-check" data-action="toggle-item" data-id="' + esc(item.id) + '"' +
+        (item.done ? ' checked' : '') + ' aria-label="Mark done">' +
+      '<div class="item-body" data-action="edit-item" data-id="' + esc(item.id) + '">' +
+        '<div class="item-title">' + esc(item.title) + '</div>' +
+        '<div class="item-sub">' + subjTag +
+          '<span class="tag tag-type ' + esc(item.type) + '">' + esc(ITEM_LABEL[item.type] || item.type) + '</span>' +
+          dateTxt + '</div>' +
+      '</div>' + chip + '</li>';
+  }
+  function subjectOptions(selected, includeGeneral) {
+    let html = includeGeneral ? '<option value="">General</option>' : '';
+    SUBJECTS.forEach((s) => {
+      html += '<option value="' + s.id + '"' + (s.id === selected ? ' selected' : '') + '>' + esc(s.short) + '</option>';
+    });
+    return html;
+  }
+
+  // ---------- dashboard ----------
+  function renderDashboard() {
+    let tDone = 0, tTotal = 0, gSum = 0, gW = 0, passing = 0, graded = 0, wAssSum = 0, wTotSum = 0;
+    SUBJECTS.forEach((sub) => {
+      const p = progressOf(sub);
+      tDone += p.done; tTotal += p.total;
+      const g = gradeOf(sub);
+      wAssSum += g.wAss; wTotSum += g.wTot || 100;
+      if (g.current != null) {
+        graded++;
+        gSum += g.current * sub.credits; gW += sub.credits;
+        if (gradeClass(g) === 'pass') passing++;
+      }
+    });
+    const syllPct = tTotal ? (tDone / tTotal) * 100 : 0;
+    const avg = gW ? gSum / gW : null;
+    const assessedPct = wTotSum ? (wAssSum / wTotSum) * 100 : 0;
+    const openItems = state.items.filter((i) => !i.done);
+    const upcoming = openItems.filter((i) => i.type !== 'task').sort(byDue);
+    const tasks = openItems.filter((i) => i.type === 'task').sort(byDue);
+    const nextExam = upcoming.find((i) => i.type === 'exam' && i.due && daysUntil(i.due) >= 0);
+
+    const C = 2 * Math.PI * 52;
+    const ringColor = syllPct >= 66 ? '#6BE3A4' : syllPct >= 33 ? '#F2C063' : '#E07658';
+
+    let nextExamLine = 'No exams scheduled';
+    if (nextExam) {
+      const s = SUB_BY_ID[nextExam.subjectId];
+      nextExamLine = 'Next exam: <b>' + esc(s ? s.short : 'General') + '</b> — ' + esc(nextExam.title) +
+        ' · ' + esc(whenLabel(nextExam.due).text);
+    }
+
+    let html = '' +
+      '<h1 class="dash-title">University</h1>' +
+      '<div class="dash-sub">Grau de Física · UB · 2026/27</div>' +
+
+      '<div class="day-ring-wrap">' +
+        '<div class="day-ring"><svg viewBox="0 0 120 120">' +
+          '<defs><filter id="uniRingGlow" x="-20%" y="-20%" width="140%" height="140%">' +
+            '<feGaussianBlur stdDeviation="2.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>' +
+          '</filter></defs>' +
+          '<circle class="day-ring-track" cx="60" cy="60" r="52"/>' +
+          '<circle class="day-ring-fill" cx="60" cy="60" r="52" filter="url(#uniRingGlow)" ' +
+            'stroke="' + ringColor + '" stroke-dasharray="' + C.toFixed(2) + '" stroke-dashoffset="' +
+            (C * (1 - syllPct / 100)).toFixed(2) + '"/>' +
+        '</svg>' +
+        '<div class="day-ring-overlay">' +
+          '<div class="day-ring-percent">' + Math.round(syllPct) + '%</div>' +
+          '<div class="day-ring-phase">Syllabus</div>' +
+          '<div class="day-ring-clock">' + tDone + '/' + tTotal + ' topics</div>' +
+        '</div></div>' +
+        '<div class="perf-text">' +
+          '<div class="gm-eyebrow">Academic performance</div>' +
+          '<div class="perf-stats">' +
+            '<div class="perf-stat"><div class="perf-stat-num" style="color:' +
+              (avg == null ? 'var(--text-primary)' : avg >= PASS ? 'var(--success)' : 'var(--danger)') + '">' +
+              fmt(avg, 2) + '</div><div class="perf-stat-label">Avg grade</div></div>' +
+            '<div class="perf-stat"><div class="perf-stat-num">' + passing + '<span style="font-size:14px;color:var(--text-tertiary)">/' + graded + '</span></div><div class="perf-stat-label">Passing</div></div>' +
+            '<div class="perf-stat"><div class="perf-stat-num">' + Math.round(assessedPct) + '%</div><div class="perf-stat-label">Assessed</div></div>' +
+          '</div>' +
+          '<div class="perf-line">' + nextExamLine + '</div>' +
+          '<div class="perf-line"><b>' + upcoming.length + '</b> upcoming · <b>' + tasks.length + '</b> pending task' + (tasks.length === 1 ? '' : 's') + '</div>' +
+        '</div>' +
+      '</div>';
+
+    // Subjects
+    html += '<div class="section"><div class="section-title">Subjects</div><div class="subj-grid">';
+    SUBJECTS.forEach((sub) => {
+      const p = progressOf(sub);
+      const g = gradeOf(sub);
+      const next = nextItemFor(sub.id);
+      const nextHtml = next
+        ? '<div class="subj-next"><span class="when ' + whenLabel(next.due).cls + '">' + esc(whenLabel(next.due).text) +
+          '</span> · ' + esc(next.title) + '</div>'
+        : '<div class="subj-next" style="color:var(--text-tertiary)">Nothing scheduled</div>';
+      html += '<a class="subj-card" href="#' + sub.id + '">' +
+        '<div class="subj-head"><div class="subj-name-wrap">' +
+          '<div class="subj-short"><span class="subj-dot" style="background:' + sub.color + '"></span>' + esc(sub.short) + '</div>' +
+          '<div class="subj-name">' + esc(sub.name) + '</div></div>' +
+          '<span class="grade-pill ' + gradeClass(g) + '">' + (g.current == null ? '—' : fmt(g.current, 2)) + '</span>' +
+        '</div>' +
+        progressBar(p) +
+        '<div class="subj-meta"><span><b>' + p.done + '/' + p.total + '</b> topics' +
+          (p.doing ? ' · ' + p.doing + ' studying' : '') + '</span><span>' + Math.round(p.pct) + '%</span></div>' +
+        nextHtml +
+      '</a>';
+    });
+    html += '</div></div>';
+
+    // Upcoming exams & assignments
+    html += '<div class="section"><div class="section-title">Upcoming exams &amp; assignments</div>' +
+      '<div class="gm-card"><div class="card-head"><div class="gm-eyebrow">' + upcoming.length + ' open</div>' +
+      '<button type="button" class="mini-btn" data-action="add-item" data-type="exam">+ Add</button></div>' +
+      (upcoming.length
+        ? '<ul class="item-list">' + upcoming.map((i) => itemRow(i, true)).join('') + '</ul>'
+        : '<div class="empty-state">No exams or assignments yet — add your first deadline.</div>') +
+      '</div></div>';
+
+    // Pending tasks
+    html += '<div class="section"><div class="section-title">Pending tasks</div>' +
+      '<div class="gm-card"><div class="gm-eyebrow">' + tasks.length + ' to do</div>' +
+      (tasks.length
+        ? '<ul class="item-list">' + tasks.map((i) => itemRow(i, true)).join('') + '</ul>'
+        : '<div class="empty-state">No pending university tasks.</div>') +
+      '<form class="gm-input-wrap" data-action="quick-task">' +
+        '<input class="gm-input" name="title" type="text" placeholder="Add a task…" autocomplete="off">' +
+        '<select class="gm-select" name="subject" aria-label="Subject">' + subjectOptions('', true) + '</select>' +
+        '<button type="submit" class="gm-add">+ Add</button>' +
+      '</form></div></div>';
+
+    return html;
+  }
+
+  // ---------- subject page ----------
+  function renderSubject(sub) {
+    const p = progressOf(sub);
+    const g = gradeOf(sub);
+    const comps = state.subjects[sub.id].assessment;
+    const items = state.items.filter((i) => i.subjectId === sub.id)
+      .sort((a, b) => (a.done - b.done) || byDue(a, b));
+
+    let html = '<a class="back-link" href="#">← University</a>' +
+      '<h1 class="dash-title">' + esc(sub.name) + '</h1>' +
+      '<div class="dash-sub">' + esc(sub.code) + ' · ' + sub.credits + ' ECTS · ' + esc(sub.coord) + '</div>';
+
+    // Summary
+    const nextUp = nextItemFor(sub.id);
+    html += '<div class="subj-summary">' +
+      '<div class="sum-box"><div class="gm-eyebrow">Syllabus</div>' +
+        '<div class="sum-num" id="sumSyll">' + Math.round(p.pct) + '<small>%</small></div>' +
+        '<div class="sum-sub" id="sumSyllSub">' + p.done + '/' + p.total + ' done · ' + p.doing + ' studying</div></div>' +
+      '<div class="sum-box"><div class="gm-eyebrow">Current grade</div>' +
+        '<div class="sum-num ' + gradeClass(g) + '" id="sumGrade">' + fmt(g.current, 2) + '<small>/10</small></div>' +
+        '<div class="sum-sub" id="sumGradeSub">' + Math.round(g.wAss) + '% assessed</div></div>' +
+      '<div class="sum-box"><div class="gm-eyebrow">Next deadline</div>' +
+        (nextUp
+          ? '<div class="sum-num" style="font-size:22px;letter-spacing:-0.02em">' + esc(whenLabel(nextUp.due).text) + '</div>' +
+            '<div class="sum-sub">' + esc(nextUp.title) + '</div>'
+          : '<div class="sum-num" style="font-size:22px;letter-spacing:-0.02em">—</div><div class="sum-sub">Nothing scheduled</div>') +
+      '</div></div>';
+
+    // Assessment
+    html += '<div class="section"><div class="section-title">Continuous assessment</div><div class="gm-card">' +
+      '<div class="card-head"><div class="gm-eyebrow">Components · marks out of 10 unless set</div>' +
+      '<button type="button" class="mini-btn" data-action="add-comp">+ Component</button></div>';
+    if (!comps.length) html += '<div class="empty-state">No components — add one to start tracking your grade.</div>';
+    comps.forEach((c) => {
+      const max = Number(c.max) || 10;
+      const isBelow = g.below.indexOf(c) !== -1;
+      html += '<div class="comp-row' + (isBelow ? ' below' : '') + '" data-comp-row="' + esc(c.id) + '">' +
+        '<div class="comp-body" data-action="edit-comp" data-id="' + esc(c.id) + '">' +
+          '<div class="comp-name">' + esc(c.name) + '</div>' +
+          '<div class="comp-sub"><span class="comp-weight">' + fmt(Number(c.weight) || 0, (Number(c.weight) % 1) ? 1 : 0) + '%</span>' +
+            '<span class="tag tag-type ' + (c.type === 'exam' ? 'exam' : '') + '">' + esc(COMP_LABEL[c.type] || c.type) + '</span>' +
+            (c.min != null ? '<span>min ' + fmt(c.min, (c.min % 1) ? 1 : 0) + '</span>' : '') +
+            '<span class="comp-warn" data-comp-warn="' + esc(c.id) + '">' + (isBelow ? 'Below minimum' : '') + '</span>' +
+          '</div></div>' +
+        '<div class="mark-wrap"><input class="mark-input" type="text" inputmode="decimal" placeholder="—" ' +
+          'data-action="mark" data-id="' + esc(c.id) + '" aria-label="Mark for ' + esc(c.name) + '" value="' +
+          (c.mark == null ? '' : esc(String(c.mark))) + '">' +
+          '<span class="mark-max">/' + esc(String(max)) + '</span></div>' +
+      '</div>';
+    });
+    html += '<div class="grade-foot"><div><div class="gm-eyebrow">Current grade</div>' +
+      '<div class="grade-big ' + gradeClass(g) + '" id="gradeBig">' + fmt(g.current, 2) + '<small> /10</small></div></div>' +
+      '<div class="grade-lines" id="gradeLines">' + gradeLinesHtml(g) + '</div></div>' +
+      '<div class="rule-note"><b style="color:var(--text-secondary)">Pla docent:</b> ' + esc(sub.note) + '</div>' +
+      '<div class="foot-actions"><button type="button" class="link-btn" data-action="reset-comps">Restore official weights</button></div>' +
+      '</div></div>';
+
+    // Deadlines & tasks for this subject
+    html += '<div class="section"><div class="section-title">Exams, assignments &amp; tasks</div><div class="gm-card">' +
+      '<div class="card-head"><div class="gm-eyebrow">' + items.filter((i) => !i.done).length + ' open</div>' +
+      '<button type="button" class="mini-btn" data-action="add-item" data-type="exam" data-subject="' + sub.id + '">+ Add</button></div>' +
+      (items.length
+        ? '<ul class="item-list">' + items.map((i) => itemRow(i, false)).join('') + '</ul>'
+        : '<div class="empty-state">Nothing here yet.</div>') +
+      '</div></div>';
+
+    // Topics
+    html += '<div class="section"><div class="section-title">Topics</div>' +
+      '<div class="legend">Tap a status to cycle: To do → Studying → Done</div><div class="gm-card">';
+    sub.blocks.forEach((b) => {
+      const bp = progressOf(sub, b.topics);
+      html += '<div class="block"><div class="block-head">' +
+        '<div class="block-title"><span class="num">' + esc(b.n) + '</span>' + esc(b.title) + '</div>' +
+        '<div class="block-count">' + (b.weeks ? esc(b.weeks) + ' · ' : '') + bp.done + '/' + bp.total + '</div></div>' +
+        progressBar(bp);
+      b.topics.forEach((t) => {
+        const st = topicStatus(sub.id, t.n);
+        html += '<div class="topic-row st-' + st + '">' +
+          '<div class="topic-num">' + esc(t.n) + '</div>' +
+          '<div class="topic-body"><div class="topic-title">' + esc(t.t) + '</div>' +
+            (t.d ? '<div class="topic-detail">' + esc(t.d) + '</div>' : '') + '</div>' +
+          '<button type="button" class="status-btn st-' + st + '" data-action="cycle-topic" data-n="' + esc(t.n) + '">' +
+            STATUS_LABEL[st] + '</button></div>';
+      });
+      html += '</div>';
+    });
+    html += '</div></div>';
+    return html;
+  }
+  function gradeLinesHtml(g) {
+    let s = '<span>Secured <b>' + fmt(g.secured, 2) + '</b> / 10</span>' +
+      '<span><b>' + Math.round(g.wAss) + '%</b> of ' + fmt(g.wTot, (g.wTot % 1) ? 1 : 0) + '% assessed</span>';
+    if (Math.abs(g.wTot - 100) > 0.001) s += '<span class="warn">Weights add up to ' + fmt(g.wTot, 1) + '%, not 100%</span>';
+    if (g.below.length) s += '<span class="warn" style="color:var(--danger)">' + g.below.length + ' part' + (g.below.length > 1 ? 's' : '') + ' below minimum</span>';
+    return s;
+  }
+
+  // Live grade refresh without re-rendering (keeps focus in the mark input).
+  function refreshGrade(sub) {
+    const g = gradeOf(sub);
+    const cls = gradeClass(g);
+    const big = document.getElementById('gradeBig');
+    if (big) { big.className = 'grade-big ' + cls; big.innerHTML = fmt(g.current, 2) + '<small> /10</small>'; }
+    const sum = document.getElementById('sumGrade');
+    if (sum) { sum.className = 'sum-num ' + cls; sum.innerHTML = fmt(g.current, 2) + '<small>/10</small>'; }
+    const sumSub = document.getElementById('sumGradeSub');
+    if (sumSub) sumSub.textContent = Math.round(g.wAss) + '% assessed';
+    const lines = document.getElementById('gradeLines');
+    if (lines) lines.innerHTML = gradeLinesHtml(g);
+    state.subjects[sub.id].assessment.forEach((c) => {
+      const isBelow = g.below.indexOf(c) !== -1;
+      const row = document.querySelector('[data-comp-row="' + CSS.escape(c.id) + '"]');
+      if (row) row.classList.toggle('below', isBelow);
+      const w = document.querySelector('[data-comp-warn="' + CSS.escape(c.id) + '"]');
+      if (w) w.textContent = isBelow ? 'Below minimum' : '';
+    });
+  }
+
+  // ---------- router ----------
+  const app = document.getElementById('app');
+  function currentSubject() {
+    const id = decodeURIComponent((location.hash || '').replace(/^#/, ''));
+    return SUB_BY_ID[id] || null;
+  }
+  function render() {
+    const sub = currentSubject();
+    app.innerHTML = sub ? renderSubject(sub) : renderDashboard();
+    document.title = sub ? sub.short + ' · University' : 'University';
+  }
+  window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
+
+  // ---------- events ----------
+  app.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-action]');
+    if (!el || !app.contains(el)) return;
+    const action = el.getAttribute('data-action');
+    const id = el.getAttribute('data-id');
+    if (action === 'cycle-topic') {
+      const sub = currentSubject(); if (!sub) return;
+      const n = el.getAttribute('data-n');
+      const next = STATUS_CYCLE[topicStatus(sub.id, n)];
+      if (next === 'todo') delete state.subjects[sub.id].topics[n];
+      else state.subjects[sub.id].topics[n] = next;
+      save(); render();
+    } else if (action === 'add-item') {
+      openItemModal(null, el.getAttribute('data-subject') || (currentSubject() || {}).id || '', el.getAttribute('data-type') || 'exam');
+    } else if (action === 'edit-item') {
+      const item = state.items.find((i) => i.id === id);
+      if (item) openItemModal(item);
+    } else if (action === 'add-comp') {
+      openCompModal(null);
+    } else if (action === 'edit-comp') {
+      const sub = currentSubject(); if (!sub) return;
+      const c = state.subjects[sub.id].assessment.find((x) => x.id === id);
+      if (c) openCompModal(c);
+    } else if (action === 'reset-comps') {
+      const sub = currentSubject(); if (!sub) return;
+      if (!confirm('Restore the official components and weights from the pla docent? Marks you entered will be cleared.')) return;
+      state.subjects[sub.id].assessment = defaultAssessment(sub);
+      save(); render();
+    }
+  });
+  app.addEventListener('change', (e) => {
+    const el = e.target;
+    if (el.getAttribute('data-action') === 'toggle-item') {
+      const item = state.items.find((i) => i.id === el.getAttribute('data-id'));
+      if (!item) return;
+      item.done = el.checked;
+      item.doneAt = el.checked ? Date.now() : null;
+      save();
+      setTimeout(render, 220);
+    }
+  });
+  app.addEventListener('input', (e) => {
+    const el = e.target;
+    if (el.getAttribute('data-action') !== 'mark') return;
+    const sub = currentSubject(); if (!sub) return;
+    const c = state.subjects[sub.id].assessment.find((x) => x.id === el.getAttribute('data-id'));
+    if (!c) return;
+    const v = parseNum(el.value);
+    const max = Number(c.max) || 10;
+    const bad = v !== null && (isNaN(v) || v < 0 || v > max);
+    el.classList.toggle('invalid', bad);
+    if (bad) return;
+    c.mark = v;
+    save();
+    refreshGrade(sub);
+  });
+  app.addEventListener('submit', (e) => {
+    const form = e.target;
+    if (form.getAttribute('data-action') !== 'quick-task') return;
+    e.preventDefault();
+    const title = form.elements.title.value.trim();
+    if (!title) return;
+    state.items.push({ id: uid(), type: 'task', title, subjectId: form.elements.subject.value || '', due: null, done: false, created: Date.now() });
+    save(); render();
+    const input = app.querySelector('form[data-action="quick-task"] input[name="title"]');
+    if (input) input.focus();
+  });
+
+  // ---------- modals ----------
+  function segInit(segEl, value) {
+    segEl.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.getAttribute('data-type') === value));
+  }
+  function segValue(segEl) {
+    const b = segEl.querySelector('button.active');
+    return b ? b.getAttribute('data-type') : null;
+  }
+  ['itemTypeSeg', 'compTypeSeg'].forEach((id) => {
+    const seg = document.getElementById(id);
+    seg.addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      segInit(seg, b.getAttribute('data-type'));
+    });
+  });
+  function closeModals() {
+    document.querySelectorAll('.po-modal-bg').forEach((m) => m.classList.remove('show'));
+    flushPendingRender();
+  }
+  document.querySelectorAll('.po-modal-bg').forEach((bg) => {
+    bg.addEventListener('click', (e) => { if (e.target === bg) closeModals(); });
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModals(); });
+
+  // Item modal
+  const itemBg = document.getElementById('itemModalBg');
+  const itemTitle = document.getElementById('itemTitle');
+  const itemSubject = document.getElementById('itemSubject');
+  const itemDue = document.getElementById('itemDue');
+  const itemTypeSeg = document.getElementById('itemTypeSeg');
+  const itemDelete = document.getElementById('itemDelete');
+  let editingItem = null;
+  function openItemModal(item, subjectId, type) {
+    editingItem = item;
+    document.getElementById('itemModalTitle').textContent = item ? 'Edit item' : 'Add item';
+    itemTitle.value = item ? item.title : '';
+    itemSubject.innerHTML = subjectOptions(item ? item.subjectId : subjectId, true);
+    itemDue.value = item && item.due ? item.due : '';
+    segInit(itemTypeSeg, item ? item.type : type);
+    itemDelete.hidden = !item;
+    itemBg.classList.add('show');
+    setTimeout(() => itemTitle.focus(), 30);
+  }
+  document.getElementById('itemCancel').addEventListener('click', closeModals);
+  function saveItem() {
+    const title = itemTitle.value.trim();
+    if (!title) { itemTitle.focus(); return; }
+    const data = { title, subjectId: itemSubject.value || '', due: itemDue.value || null, type: segValue(itemTypeSeg) || 'task' };
+    if (editingItem) Object.assign(editingItem, data);
+    else state.items.push(Object.assign({ id: uid(), done: false, created: Date.now() }, data));
+    save(); closeModals(); render();
+  }
+  document.getElementById('itemSave').addEventListener('click', saveItem);
+  itemTitle.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveItem(); });
+  itemDelete.addEventListener('click', () => {
+    if (!editingItem) return;
+    state.items = state.items.filter((i) => i !== editingItem);
+    save(); closeModals(); render();
+  });
+
+  // Component modal
+  const compBg = document.getElementById('compModalBg');
+  const compName = document.getElementById('compName');
+  const compWeight = document.getElementById('compWeight');
+  const compMax = document.getElementById('compMax');
+  const compMin = document.getElementById('compMin');
+  const compTypeSeg = document.getElementById('compTypeSeg');
+  const compDelete = document.getElementById('compDelete');
+  let editingComp = null;
+  function openCompModal(c) {
+    editingComp = c;
+    document.getElementById('compModalTitle').textContent = c ? 'Edit component' : 'Add component';
+    compName.value = c ? c.name : '';
+    compWeight.value = c ? String(c.weight) : '';
+    compMax.value = c ? String(c.max || 10) : '10';
+    compMin.value = c && c.min != null ? String(c.min) : '';
+    segInit(compTypeSeg, c ? c.type : 'exam');
+    compDelete.hidden = !c;
+    compBg.classList.add('show');
+    setTimeout(() => compName.focus(), 30);
+  }
+  document.getElementById('compCancel').addEventListener('click', closeModals);
+  function saveComp() {
+    const sub = currentSubject(); if (!sub) return;
+    const name = compName.value.trim();
+    const weight = parseNum(compWeight.value);
+    const max = parseNum(compMax.value);
+    const min = parseNum(compMin.value);
+    if (!name) { compName.focus(); return; }
+    if (weight == null || isNaN(weight) || weight < 0 || weight > 100) { compWeight.focus(); return; }
+    if (max != null && (isNaN(max) || max <= 0)) { compMax.focus(); return; }
+    if (min != null && (isNaN(min) || min < 0 || min > 10)) { compMin.focus(); return; }
+    const data = { name, weight, type: segValue(compTypeSeg) || 'other', max: max || 10, min: min };
+    if (editingComp) Object.assign(editingComp, data);
+    else state.subjects[sub.id].assessment.push(Object.assign({ id: uid(), mark: null }, data));
+    save(); closeModals(); render();
+  }
+  document.getElementById('compSave').addEventListener('click', saveComp);
+  [compName, compWeight, compMax, compMin].forEach((el) => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveComp(); }));
+  compDelete.addEventListener('click', () => {
+    const sub = currentSubject(); if (!sub || !editingComp) return;
+    if (!confirm('Delete "' + editingComp.name + '"?')) return;
+    const list = state.subjects[sub.id].assessment;
+    state.subjects[sub.id].assessment = list.filter((c) => c !== editingComp);
+    save(); closeModals(); render();
+  });
+
+  // ---------- realtime sync: re-render when another device changes data ----------
+  let renderPending = false;
+  function isEditing() {
+    const el = document.activeElement;
+    const modalOpen = !!document.querySelector('.po-modal-bg.show');
+    return modalOpen || (!!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT'));
+  }
+  function flushPendingRender() {
+    if (!renderPending) return;
+    setTimeout(() => {
+      if (isEditing()) return;
+      renderPending = false;
+      state = load(); render();
+    }, 0);
+  }
+  function onRemoteChange() {
+    if (isEditing()) { renderPending = true; return; }
+    state = load(); render();
+  }
+  document.addEventListener('focusout', flushPendingRender, true);
+  window.addEventListener('uni-changed', onRemoteChange);
+  window.addEventListener('storage', (e) => { if (!e.key || e.key === STORE_KEY) onRemoteChange(); });
+
+  // Keep "in Nd" labels fresh across midnight.
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && !isEditing()) render(); });
+
+  render();
+})();
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (typeof initCloudSync !== 'function') return;
+  initCloudSync({
+    appKey: 'uni',
+    syncedKeys: ['uni:v1'],
+    onApplied: function () { window.dispatchEvent(new CustomEvent('uni-changed')); }
+  });
+});
+</script>
+</body>
+</html>

@@ -599,6 +599,24 @@ body::after {
   .gm-card { padding: 16px; }
   .gm-progress-num { font-size: 36px; }
 }
+
+/* ===== University link ===== */
+.uni-link {
+  display: flex; align-items: center; gap: 14px;
+  text-decoration: none; color: inherit;
+  border: 1px solid transparent;
+  transition: background 0.2s, border-color 0.2s;
+}
+.uni-link:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.08); }
+.uni-link-icon { font-size: 26px; filter: grayscale(100%) brightness(1.5); opacity: 0.85; }
+.uni-link-body { flex: 1; min-width: 0; }
+.uni-link-title { font-size: 16px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.015em; }
+.uni-link-meta {
+  margin-top: 3px;
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--text-tertiary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.uni-link-arrow { font-size: 18px; color: var(--text-tertiary); }
 </style>
 </head>
 <body>
@@ -697,7 +715,44 @@ body::after {
     </div>
   </div>
 
+  <div class="section">
+    <div class="section-title">University</div>
+    <a class="gm-card uni-link" href="uni.html">
+      <span class="uni-link-icon">🎓</span>
+      <div class="uni-link-body">
+        <div class="uni-link-title">University</div>
+        <div class="uni-link-meta" id="uniLinkMeta">5 subjects · Física UB</div>
+      </div>
+      <span class="uni-link-arrow">→</span>
+    </a>
+  </div>
+
 </div>
+<script>
+// University card: show the next open exam/assignment from uni.html's data.
+(function () {
+  var NAMES = { calcul: 'Càlcul', algebra: 'Àlgebra', fonmec: 'FonMec', quimica: 'Química', info: 'Informàtica' };
+  function update() {
+    var el = document.getElementById('uniLinkMeta');
+    if (!el) return;
+    var s = null;
+    try { s = JSON.parse(localStorage.getItem('uni:v1')); } catch (e) {}
+    var items = (s && Array.isArray(s.items)) ? s.items : [];
+    var t = new Date(); t.setHours(0, 0, 0, 0);
+    var next = items.filter(function (i) { return !i.done && i.type !== 'task' && i.due; })
+      .sort(function (a, b) { return a.due < b.due ? -1 : a.due > b.due ? 1 : 0; })[0];
+    var tasks = items.filter(function (i) { return !i.done && i.type === 'task'; }).length;
+    if (!next) { el.textContent = '5 subjects · ' + tasks + ' pending task' + (tasks === 1 ? '' : 's'); return; }
+    var p = next.due.split('-').map(Number);
+    var d = Math.round((new Date(p[0], p[1] - 1, p[2]) - t) / 86400000);
+    var when = d === 0 ? 'today' : d === 1 ? 'tomorrow' : d < 0 ? (-d) + 'd overdue' : 'in ' + d + 'd';
+    el.textContent = 'Next: ' + (NAMES[next.subjectId] ? NAMES[next.subjectId] + ' — ' : '') + next.title + ' · ' + when;
+  }
+  update();
+  window.addEventListener('storage', update);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) update(); });
+})();
+</script>
 
 <script>
 (function () {
