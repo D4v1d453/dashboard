@@ -600,23 +600,158 @@ body::after {
   .gm-progress-num { font-size: 36px; }
 }
 
-/* ===== University link ===== */
-.uni-link {
-  display: flex; align-items: center; gap: 14px;
-  text-decoration: none; color: inherit;
-  border: 1px solid transparent;
-  transition: background 0.2s, border-color 0.2s;
+/* ===== Long-Term Goals ===== */
+.lt-add { padding: 9px 16px; font-size: 12.5px; }
+.lt-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 14px;
 }
-.uni-link:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.08); }
-.uni-link-icon { font-size: 26px; filter: grayscale(100%) brightness(1.5); opacity: 0.85; }
-.uni-link-body { flex: 1; min-width: 0; }
-.uni-link-title { font-size: 16px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.015em; }
-.uni-link-meta {
-  margin-top: 3px;
-  font-family: var(--font-mono); font-size: 11.5px; color: var(--text-tertiary);
+.lt-filter {
+  width: 100%; min-width: 0;
+  padding: 8px 26px 8px 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  background: rgba(0,0,0,0.28) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2376746E' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 10px center;
+  color: var(--text-secondary);
+  font-family: inherit; font-size: 12px; font-weight: 600;
+  appearance: none; -webkit-appearance: none;
+  cursor: pointer; outline: none;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.uni-link-arrow { font-size: 18px; color: var(--text-tertiary); }
+.lt-filter:focus { border-color: rgba(255,255,255,0.28); }
+.lt-filter.is-set { color: var(--text-primary); border-color: rgba(255,255,255,0.18); }
+.lt-filter option { background: #121214; color: var(--text-primary); }
+.lt-group { margin-bottom: 12px; }
+.lt-group:last-child { margin-bottom: 0; }
+.lt-group-head {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 2px 8px;
+  font-family: var(--font-mono);
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.lt-group-head .lt-now { color: var(--warning); }
+.lt-group-head::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.06), transparent);
+}
+.lt-row { cursor: pointer; }
+.lt-row.lt-done { opacity: 0.45; background: rgba(107,227,164,0.04); }
+.lt-row.lt-done .lt-title { text-decoration: line-through; text-decoration-color: rgba(255,255,255,0.4); }
+.lt-row.lt-progress { box-shadow: inset 3px 0 0 0 #F2C063; }
+.lt-dot {
+  width: 22px; height: 22px; flex-shrink: 0;
+  margin: 0; padding: 0;
+  border: 1.5px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.28);
+  border-radius: 50%;
+  cursor: pointer; position: relative;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.25s;
+}
+.lt-dot[data-status="in_progress"] { border-color: #F2C063; }
+.lt-dot[data-status="in_progress"]::after {
+  content: ''; position: absolute; inset: 4px; border-radius: 50%;
+  background: conic-gradient(#F2C063 0 50%, transparent 50% 100%);
+}
+.lt-dot[data-status="completed"] { background: #6BE3A4; border-color: #6BE3A4; box-shadow: 0 0 12px rgba(107,227,164,0.40); }
+.lt-dot[data-status="completed"]::after {
+  content: ''; position: absolute; left: 6px; top: 2.5px;
+  width: 5px; height: 10px;
+  border: solid #0A0A0B; border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg);
+}
+.lt-body { flex: 1; min-width: 0; }
+.lt-title {
+  font-size: 14px; color: var(--text-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lt-meta {
+  display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap;
+  margin-top: 3px;
+  font-size: 11px; color: var(--text-tertiary);
+}
+.lt-area {
+  font-size: 9.5px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 999px;
+  background: rgba(255,255,255,0.05);
+  color: var(--text-secondary);
+}
+.lt-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.lt-late { color: var(--danger); }
+.lt-status {
+  flex-shrink: 0;
+  font-size: 9.5px; font-weight: 700;
+  letter-spacing: 0.10em; text-transform: uppercase;
+  padding: 4px 8px; border-radius: 999px;
+  background: rgba(255,255,255,0.04);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+.lt-status[data-status="in_progress"] { color: #F2C063; background: rgba(242,192,99,0.10); }
+.lt-status[data-status="completed"] { color: var(--success); background: rgba(107,227,164,0.08); }
+
+/* Modal — same pattern as the other sections (topbar.js makes it full-screen on phones) */
+.po-modal-bg {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
+  z-index: 100; align-items: center; justify-content: center;
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+}
+.po-modal-bg.show { display: flex; }
+.po-modal {
+  width: 100%; max-width: 440px;
+  background: #121214;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 16px;
+  padding: 22px; max-height: 88vh; overflow-y: auto;
+}
+.po-modal h3 { margin: 0 0 16px; font-size: 17px; font-weight: 700; color: var(--text-primary); }
+.po-field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; min-width: 0; }
+.po-field > label {
+  font-size: 11px; color: var(--text-tertiary); font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase;
+}
+.po-field .gm-input { width: 100%; }
+.po-field textarea.gm-input { resize: vertical; min-height: 64px; line-height: 1.4; }
+.po-field select.gm-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
+.po-field select.gm-input option { background: #121214; }
+.po-field input[type="date"].gm-input { color-scheme: dark; }
+.po-grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.po-modal-seg {
+  display: flex; gap: 4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px; padding: 3px;
+}
+.po-modal-seg button {
+  flex: 1; min-width: 0; padding: 9px 4px; border: none; background: transparent;
+  color: var(--text-tertiary); border-radius: 7px;
+  font-family: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer;
+}
+.po-modal-seg button.active { background: linear-gradient(180deg, #ffffff 0%, #e8e5dd 100%); color: #0a0a0b; }
+.po-modal-actions { display: flex; gap: 8px; margin-top: 18px; }
+.po-modal-actions button { flex: 1; }
+.po-delete-link {
+  display: block; width: 100%; margin-top: 12px; padding: 6px;
+  background: none; border: 0;
+  font-family: inherit; font-size: 12px; color: var(--danger);
+  text-decoration: underline; cursor: pointer;
+}
+.po-error { min-height: 14px; font-size: 11px; color: var(--danger); margin-top: -4px; }
+
+.lt-st-inline { display: none; }
+.lt-st-inline[data-status="in_progress"] { color: #F2C063; }
+.lt-st-inline[data-status="completed"] { color: var(--success); }
+@media (max-width: 480px) {
+  .lt-filters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .lt-status { display: none; }
+  .lt-st-inline { display: inline; }
+}
 </style>
 </head>
 <body>
@@ -716,41 +851,343 @@ body::after {
   </div>
 
   <div class="section">
-    <div class="section-title">University</div>
-    <a class="gm-card uni-link" href="uni.html">
-      <span class="uni-link-icon">🎓</span>
-      <div class="uni-link-body">
-        <div class="uni-link-title">University</div>
-        <div class="uni-link-meta" id="uniLinkMeta">5 subjects · Física UB</div>
+    <div class="section-title">Long-Term Goals</div>
+    <div class="gm-card" id="ltCard">
+      <div class="gm-header">
+        <div class="gm-header-left">
+          <div class="gm-eyebrow" id="ltEyebrow">Goals —</div>
+          <div class="gm-progress-row">
+            <span class="gm-progress-num" id="ltNum">0</span>
+            <span class="gm-progress-total" id="ltTotal">/ 0</span>
+            <span class="gm-progress-label">completed</span>
+          </div>
+        </div>
+        <button type="button" class="gm-add lt-add" id="ltAddBtn">+ Add goal</button>
       </div>
-      <span class="uni-link-arrow">→</span>
-    </a>
+      <div class="gm-bar" id="ltBar"></div>
+      <div class="lt-filters">
+        <select class="lt-filter" id="ltFYear" aria-label="Filter by year"></select>
+        <select class="lt-filter" id="ltFQuarter" aria-label="Filter by quarter"></select>
+        <select class="lt-filter" id="ltFArea" aria-label="Filter by life area"></select>
+        <select class="lt-filter" id="ltFStatus" aria-label="Filter by status"></select>
+      </div>
+      <div id="ltList"></div>
+    </div>
   </div>
 
 </div>
+
+<!-- Long-Term Goal modal -->
+<div class="po-modal-bg" id="ltModalBg">
+  <div class="po-modal" role="dialog" aria-modal="true" aria-labelledby="ltModalTitle">
+    <h3 id="ltModalTitle">New goal</h3>
+    <div class="po-field">
+      <label for="ltTitle">Title</label>
+      <input class="gm-input" type="text" id="ltTitle" maxlength="140" placeholder="e.g. Pass every first-semester exam" autocomplete="off">
+    </div>
+    <div class="po-field">
+      <label for="ltDesc">Description <span style="text-transform:none;letter-spacing:0;font-weight:500">(optional)</span></label>
+      <textarea class="gm-input" id="ltDesc" rows="2" maxlength="1000" placeholder="Why it matters, how you'll measure it…"></textarea>
+    </div>
+    <div class="po-field">
+      <label for="ltArea">Life area</label>
+      <select class="gm-input" id="ltArea"></select>
+    </div>
+    <div class="po-field">
+      <label>Quarter</label>
+      <div class="po-modal-seg" id="ltQuarterSeg">
+        <button type="button" data-v="1">Q1</button>
+        <button type="button" data-v="2">Q2</button>
+        <button type="button" data-v="3">Q3</button>
+        <button type="button" data-v="4">Q4</button>
+      </div>
+    </div>
+    <div class="po-grid2">
+      <div class="po-field">
+        <label for="ltYear">Year</label>
+        <input class="gm-input" type="text" inputmode="numeric" id="ltYear" maxlength="4">
+      </div>
+      <div class="po-field">
+        <label for="ltTarget">Target date</label>
+        <input class="gm-input" type="date" id="ltTarget">
+      </div>
+    </div>
+    <div class="po-field">
+      <label>Status</label>
+      <div class="po-modal-seg" id="ltStatusSeg">
+        <button type="button" data-v="not_started">Not started</button>
+        <button type="button" data-v="in_progress">In progress</button>
+        <button type="button" data-v="completed">Completed</button>
+      </div>
+    </div>
+    <div class="po-error" id="ltError"></div>
+    <div class="po-modal-actions">
+      <button type="button" class="gm-polish" id="ltCancel">Cancel</button>
+      <button type="button" class="gm-add" id="ltSave">Save</button>
+    </div>
+    <button type="button" class="po-delete-link" id="ltDelete" hidden>Delete goal</button>
+  </div>
+</div>
+
 <script>
-// University card: show the next open exam/assignment from uni.html's data.
+// =============================================================
+// Long-Term Goals. Stored under 'ltgoals:v1' and synced to Supabase
+// (app_state row 'goals') by sync.js, like the rest of Main. Deliberately
+// not under the 'goals:' prefix: rollover/streak treat those keys as days.
+// =============================================================
 (function () {
-  var NAMES = { calcul: 'Càlcul', algebra: 'Àlgebra', fonmec: 'FonMec', quimica: 'Química', info: 'Informàtica' };
-  function update() {
-    var el = document.getElementById('uniLinkMeta');
-    if (!el) return;
-    var s = null;
-    try { s = JSON.parse(localStorage.getItem('uni:v1')); } catch (e) {}
-    var items = (s && Array.isArray(s.items)) ? s.items : [];
-    var t = new Date(); t.setHours(0, 0, 0, 0);
-    var next = items.filter(function (i) { return !i.done && i.type !== 'task' && i.due; })
-      .sort(function (a, b) { return a.due < b.due ? -1 : a.due > b.due ? 1 : 0; })[0];
-    var tasks = items.filter(function (i) { return !i.done && i.type === 'task'; }).length;
-    if (!next) { el.textContent = '5 subjects · ' + tasks + ' pending task' + (tasks === 1 ? '' : 's'); return; }
-    var p = next.due.split('-').map(Number);
-    var d = Math.round((new Date(p[0], p[1] - 1, p[2]) - t) / 86400000);
-    var when = d === 0 ? 'today' : d === 1 ? 'tomorrow' : d < 0 ? (-d) + 'd overdue' : 'in ' + d + 'd';
-    el.textContent = 'Next: ' + (NAMES[next.subjectId] ? NAMES[next.subjectId] + ' — ' : '') + next.title + ' · ' + when;
+  'use strict';
+  const KEY = 'ltgoals:v1';
+  const FILTER_KEY = 'ltgoals_filters'; // per-device UI preference, not synced
+  const AREAS = [
+    ['university', 'University / Education', 'University'],
+    ['fitness', 'Fitness / Health', 'Fitness'],
+    ['personal', 'Personal Development', 'Personal'],
+    ['career', 'Career / Professional', 'Career'],
+    ['finance', 'Finance', 'Finance'],
+    ['lifestyle', 'Lifestyle', 'Lifestyle'],
+    ['other', 'Other', 'Other'],
+  ];
+  const AREA_FULL = {}, AREA_SHORT = {};
+  AREAS.forEach((a) => { AREA_FULL[a[0]] = a[1]; AREA_SHORT[a[0]] = a[2]; });
+  const STATUSES = [['not_started', 'Not started'], ['in_progress', 'In progress'], ['completed', 'Completed']];
+  const STATUS_LABEL = {}; STATUSES.forEach((s) => { STATUS_LABEL[s[0]] = s[1]; });
+  const NEXT_STATUS = { not_started: 'in_progress', in_progress: 'completed', completed: 'not_started' };
+  const STATUS_ORDER = { in_progress: 0, not_started: 1, completed: 2 };
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  function nowQuarter() { const d = new Date(); return { q: Math.floor(d.getMonth() / 3) + 1, y: d.getFullYear() }; }
+
+  // ---------- storage ----------
+  function load() {
+    let v = null;
+    try { v = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+    const list = v && Array.isArray(v.goals) ? v.goals : [];
+    return list.filter((g) => g && g.id && g.title);
   }
-  update();
-  window.addEventListener('storage', update);
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) update(); });
+  function save(goals) {
+    try { localStorage.setItem(KEY, JSON.stringify({ version: 1, goals })); } catch (e) {}
+  }
+  function loadFilters() {
+    let f = null;
+    try { f = JSON.parse(localStorage.getItem(FILTER_KEY)); } catch (e) {}
+    return Object.assign({ year: String(nowQuarter().y), quarter: 'all', area: 'all', status: 'all' }, f || {});
+  }
+  function saveFilters() { try { localStorage.setItem(FILTER_KEY, JSON.stringify(filters)); } catch (e) {} }
+  function uid() { return 'lt_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+  let goals = load();
+  let filters = loadFilters();
+
+  // ---------- filters ----------
+  function fillSelect(el, options, value) {
+    el.innerHTML = options.map((o) => '<option value="' + esc(o[0]) + '"' + (o[0] === value ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('');
+    if (el.value !== value) { el.value = 'all'; }
+    el.classList.toggle('is-set', el.value !== 'all');
+    return el.value;
+  }
+  function renderFilters() {
+    const years = new Set([nowQuarter().y]);
+    goals.forEach((g) => years.add(Number(g.year)));
+    const yearOpts = [['all', 'All years']].concat(Array.from(years).sort((a, b) => a - b).map((y) => [String(y), String(y)]));
+    filters.year = fillSelect($('ltFYear'), yearOpts, filters.year);
+    filters.quarter = fillSelect($('ltFQuarter'), [['all', 'All quarters'], ['1', 'Q1'], ['2', 'Q2'], ['3', 'Q3'], ['4', 'Q4']], filters.quarter);
+    filters.area = fillSelect($('ltFArea'), [['all', 'All areas']].concat(AREAS.map((a) => [a[0], a[2]])), filters.area);
+    filters.status = fillSelect($('ltFStatus'), [['all', 'All statuses']].concat(STATUSES), filters.status);
+  }
+  ['ltFYear', 'ltFQuarter', 'ltFArea', 'ltFStatus'].forEach((id) => {
+    $(id).addEventListener('change', (e) => {
+      const k = { ltFYear: 'year', ltFQuarter: 'quarter', ltFArea: 'area', ltFStatus: 'status' }[id];
+      filters[k] = e.target.value;
+      saveFilters(); render();
+    });
+  });
+
+  // ---------- render ----------
+  function targetLabel(dateStr, done) {
+    if (!dateStr) return '';
+    const p = dateStr.split('-').map(Number);
+    if (p.length !== 3 || p.some(isNaN)) return '';
+    const d = new Date(p[0], p[1] - 1, p[2]);
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    const txt = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: d.getFullYear() !== t.getFullYear() ? 'numeric' : undefined });
+    const late = !done && d < t;
+    return '<span class="lt-mono' + (late ? ' lt-late' : '') + '">→ ' + esc(txt) + (late ? ' · overdue' : '') + '</span>';
+  }
+  function rowHtml(g) {
+    const st = STATUS_LABEL[g.status] ? g.status : 'not_started';
+    const cls = st === 'completed' ? ' lt-done' : st === 'in_progress' ? ' lt-progress' : '';
+    return '<li class="gm-row lt-row' + cls + '" data-id="' + esc(g.id) + '">' +
+      '<button type="button" class="lt-dot" data-status="' + st + '" data-act="cycle" ' +
+        'aria-label="Status: ' + STATUS_LABEL[st] + '. Tap to change" title="' + STATUS_LABEL[st] + '"></button>' +
+      '<div class="lt-body">' +
+        '<div class="lt-title">' + esc(g.title) + '</div>' +
+        '<div class="lt-meta">' +
+          '<span class="lt-area">' + esc(AREA_SHORT[g.area] || 'Other') + '</span>' +
+          '<span class="lt-mono">Q' + esc(g.quarter) + ' ' + esc(g.year) + '</span>' +
+          targetLabel(g.targetDate, st === 'completed') +
+          '<span class="lt-st-inline" data-status="' + st + '">' + STATUS_LABEL[st] + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<span class="lt-status" data-status="' + st + '">' + STATUS_LABEL[st] + '</span>' +
+    '</li>';
+  }
+  function render() {
+    renderFilters();
+    const nq = nowQuarter();
+    const shown = goals.filter((g) =>
+      (filters.year === 'all' || String(g.year) === filters.year) &&
+      (filters.quarter === 'all' || String(g.quarter) === filters.quarter) &&
+      (filters.area === 'all' || g.area === filters.area) &&
+      (filters.status === 'all' || g.status === filters.status));
+    const done = shown.filter((g) => g.status === 'completed').length;
+
+    const scope = (filters.year === 'all' ? 'All years' : filters.year) +
+      (filters.quarter === 'all' ? '' : ' · Q' + filters.quarter);
+    $('ltEyebrow').textContent = 'Goals — ' + scope;
+    $('ltNum').textContent = done;
+    $('ltTotal').textContent = '/ ' + shown.length;
+    $('ltCard').classList.toggle('gm-all-done', shown.length > 0 && done === shown.length);
+    $('ltBar').innerHTML = shown.length > 24 ? '' : shown
+      .slice().sort((a, b) => STATUS_ORDER[b.status] - STATUS_ORDER[a.status])
+      .map((g) => '<div class="gm-bar-seg' + (g.status === 'completed' ? ' gm-bar-seg-done' : '') + '"></div>').join('');
+
+    if (!shown.length) {
+      $('ltList').innerHTML = '<div class="empty-state">' +
+        (goals.length ? 'No goals match these filters.' : 'No long-term goals yet — add your first one.') + '</div>';
+      return;
+    }
+    // Group by quarter, chronological; inside a group: in progress → not started → completed.
+    const groups = new Map();
+    shown.slice()
+      .sort((a, b) => (a.year - b.year) || (a.quarter - b.quarter) ||
+        (STATUS_ORDER[a.status] - STATUS_ORDER[b.status]) || ((a.createdAt || 0) - (b.createdAt || 0)))
+      .forEach((g) => {
+        const k = g.year + '-' + g.quarter;
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k).push(g);
+      });
+    let html = '';
+    groups.forEach((list, k) => {
+      const [y, q] = k.split('-').map(Number);
+      const isNow = y === nq.y && q === nq.q;
+      const gd = list.filter((g) => g.status === 'completed').length;
+      html += '<div class="lt-group"><div class="lt-group-head"><span>Q' + q + ' ' + y + '</span>' +
+        (isNow ? '<span class="lt-now">· now</span>' : '') + '<span>' + gd + '/' + list.length + '</span></div>' +
+        '<ul class="goal-list">' + list.map(rowHtml).join('') + '</ul></div>';
+    });
+    $('ltList').innerHTML = html;
+  }
+
+  // ---------- list interactions ----------
+  $('ltList').addEventListener('click', (e) => {
+    const row = e.target.closest('.lt-row');
+    if (!row) return;
+    const g = goals.find((x) => x.id === row.getAttribute('data-id'));
+    if (!g) return;
+    if (e.target.closest('[data-act="cycle"]')) {
+      g.status = NEXT_STATUS[g.status] || 'in_progress';
+      g.completedAt = g.status === 'completed' ? Date.now() : null;
+      g.updatedAt = Date.now();
+      save(goals); render();
+      return;
+    }
+    openModal(g);
+  });
+
+  // ---------- modal ----------
+  const bg = $('ltModalBg');
+  let editing = null;
+  function segSet(seg, v) {
+    seg.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.getAttribute('data-v') === String(v)));
+  }
+  function segGet(seg) { const b = seg.querySelector('button.active'); return b ? b.getAttribute('data-v') : null; }
+  ['ltQuarterSeg', 'ltStatusSeg'].forEach((id) => {
+    $(id).addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (b) segSet($(id), b.getAttribute('data-v'));
+    });
+  });
+  $('ltArea').innerHTML = AREAS.map((a) => '<option value="' + a[0] + '">' + esc(a[1]) + '</option>').join('');
+
+  function openModal(g) {
+    editing = g || null;
+    const nq = nowQuarter();
+    $('ltModalTitle').textContent = g ? 'Edit goal' : 'New goal';
+    $('ltTitle').value = g ? g.title : '';
+    $('ltDesc').value = g ? (g.description || '') : '';
+    $('ltArea').value = g ? (AREA_FULL[g.area] ? g.area : 'other') : (filters.area !== 'all' ? filters.area : 'personal');
+    segSet($('ltQuarterSeg'), g ? g.quarter : (filters.quarter !== 'all' ? filters.quarter : nq.q));
+    $('ltYear').value = g ? g.year : (filters.year !== 'all' ? filters.year : nq.y);
+    $('ltTarget').value = g && g.targetDate ? g.targetDate : '';
+    segSet($('ltStatusSeg'), g ? g.status : 'not_started');
+    $('ltError').textContent = '';
+    $('ltDelete').hidden = !g;
+    bg.classList.add('show');
+    setTimeout(() => { if (!g) $('ltTitle').focus(); }, 30);
+  }
+  let pendingReload = false;
+  function closeModal() {
+    bg.classList.remove('show'); editing = null;
+    if (pendingReload) { pendingReload = false; goals = load(); render(); }
+  }
+  function saveModal() {
+    const title = $('ltTitle').value.trim();
+    const year = Number($('ltYear').value.trim());
+    const quarter = Number(segGet($('ltQuarterSeg')));
+    const status = segGet($('ltStatusSeg')) || 'not_started';
+    if (!title) { $('ltError').textContent = 'Give the goal a title.'; $('ltTitle').focus(); return; }
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) { $('ltError').textContent = 'Enter a valid year.'; $('ltYear').focus(); return; }
+    if (!(quarter >= 1 && quarter <= 4)) { $('ltError').textContent = 'Pick a quarter.'; return; }
+    const data = {
+      title,
+      description: $('ltDesc').value.trim(),
+      area: $('ltArea').value,
+      quarter, year, status,
+      targetDate: $('ltTarget').value || null,
+      updatedAt: Date.now(),
+    };
+    if (editing) {
+      if (data.status === 'completed' && editing.status !== 'completed') data.completedAt = Date.now();
+      if (data.status !== 'completed') data.completedAt = null;
+      Object.assign(editing, data);
+    } else {
+      goals.push(Object.assign({ id: uid(), createdAt: Date.now(), completedAt: status === 'completed' ? Date.now() : null }, data));
+      // Make sure the new goal is visible under the current filters.
+      if (filters.year !== 'all' && filters.year !== String(year)) filters.year = String(year);
+      if (filters.quarter !== 'all' && filters.quarter !== String(quarter)) filters.quarter = 'all';
+      if (filters.area !== 'all' && filters.area !== data.area) filters.area = 'all';
+      if (filters.status !== 'all' && filters.status !== status) filters.status = 'all';
+      saveFilters();
+    }
+    save(goals); closeModal(); render();
+  }
+  $('ltAddBtn').addEventListener('click', () => openModal(null));
+  $('ltCancel').addEventListener('click', closeModal);
+  $('ltSave').addEventListener('click', saveModal);
+  $('ltTitle').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveModal(); });
+  $('ltDelete').addEventListener('click', () => {
+    if (!editing) return;
+    if (!confirm('Delete "' + editing.title + '"?')) return;
+    const id = editing.id;
+    goals = goals.filter((g) => g.id !== id);
+    save(goals); closeModal(); render();
+  });
+  bg.addEventListener('click', (e) => { if (e.target === bg) closeModal(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && bg.classList.contains('show')) closeModal(); });
+
+  // ---------- realtime: another device changed the goals row ----------
+  function reloadFromStore() {
+    if (bg.classList.contains('show')) { pendingReload = true; return; } // apply after the form closes
+    goals = load(); render();
+  }
+  window.addEventListener('storage', (e) => { if (!e || !e.key || e.key === KEY) reloadFromStore(); });
+  window.addEventListener('goals-changed', reloadFromStore);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) reloadFromStore(); });
+
+  render();
 })();
 </script>
 
@@ -1375,6 +1812,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initCloudSync({
     appKey: 'goals',
     syncedPrefixes: ['goals:'],
+    syncedKeys: ['ltgoals:v1'],
     onApplied: function () {
       window.dispatchEvent(new CustomEvent('goals-changed'));
       window.dispatchEvent(new Event('storage'));
