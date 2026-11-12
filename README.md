@@ -22,7 +22,7 @@ Open any `.html` file directly in your browser — no build step, no install.
 | [uni.html](uni.html) | University — subjects, syllabus progress, deadlines, continuous-assessment grades |
 | [topbar.js](topbar.js) | Shared top bar — auto-injected into pages that `<script src="topbar.js">` |
 
-Each app stores its own state in browser `localStorage`. No accounts, no server.
+Each app keeps its state in browser `localStorage` and syncs it to Supabase (`app_state` table, one row per section) through [sync.js](sync.js), with live updates across devices. Run [supabase/enable-realtime.sql](supabase/enable-realtime.sql) once in the Supabase SQL Editor so changes arrive instantly; without it they arrive within ~20 s via polling.
 
 ## Building from scratch
 

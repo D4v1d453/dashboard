@@ -1096,6 +1096,22 @@ html, body {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
+  // Live sync: reload state from localStorage and repaint. Held back while
+  // the settings modal is open so it doesn't swap data under the form.
+  let refreshPending = false;
+  window.waterRefresh = function () {
+    if ($('setModalBg').classList.contains('show')) { refreshPending = true; return; }
+    refreshPending = false;
+    state = loadState();
+    renderAll();
+  };
+  new MutationObserver(() => {
+    if (refreshPending && !$('setModalBg').classList.contains('show')) window.waterRefresh();
+  }).observe($('setModalBg'), { attributes: true, attributeFilter: ['class'] });
+  // Another tab, or the Health page around this embed (e.g. the top-bar +1),
+  // changed the water log.
+  window.addEventListener('storage', (e) => { if (!e.key || e.key === LS_KEY) window.waterRefresh(); });
+
   // BOOT
   renderAll();
 })();
@@ -1127,7 +1143,12 @@ document.addEventListener('DOMContentLoaded', function () {
   initCloudSync({
     appKey: 'health',
     syncedKeys: ['po_water_v1'],
-    onApplied: function () { window.cloudSyncReload(); }
+    onApplied: function () {
+      window.cloudSyncRefresh(function () {
+        if (typeof window.waterRefresh === 'function') window.waterRefresh();
+        else location.reload();
+      });
+    }
   });
 });
 </script>

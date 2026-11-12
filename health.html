@@ -1042,6 +1042,12 @@ main {
     render();
   }, 60 * 1000);
 
+  // Live sync: the stack reads from localStorage on every render.
+  window.healthRerender = function () {
+    todayKey = `stack:taken:${getActiveDate()}`;
+    render();
+  };
+
   render();
   startTicker();
 })();
@@ -1147,7 +1153,15 @@ document.addEventListener('DOMContentLoaded', function () {
     syncedPrefixes: ['stack:taken:'],
     onApplied: function () {
       if (typeof window.healthMigrateStack === 'function') window.healthMigrateStack();
-      window.cloudSyncReload();
+      window.cloudSyncRefresh(function () {
+        if (typeof window.healthRerender !== 'function') { location.reload(); return; }
+        window.healthRerender();
+        // Embedded water tracker reads the same localStorage — repaint it too.
+        const wf = document.querySelector('.water-iframe');
+        try {
+          if (wf && wf.contentWindow && typeof wf.contentWindow.waterRefresh === 'function') wf.contentWindow.waterRefresh();
+        } catch (e) {}
+      });
     }
   });
 });

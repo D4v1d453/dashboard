@@ -3335,6 +3335,21 @@ img, video, canvas, svg { max-width: 100%; }
   // JSON of the last state we sent or received — used to ignore
   // realtime echoes of our own pushes so we don't infinite-loop.
   let pcLastSyncedJson = null;
+  let pcPushPending = false; // a local edit is waiting to be (or being) pushed
+  // Key-order-independent JSON: app_state.data is jsonb, which reorders
+  // keys, so the same data must compare equal whatever order it comes in.
+  function pcCanon(v) {
+    if (Array.isArray(v)) return '[' + v.map(pcCanon).join(',') + ']';
+    if (v && typeof v === 'object') {
+      return '{' + Object.keys(v).sort().map((k) => JSON.stringify(k) + ':' + pcCanon(v[k])).join(',') + '}';
+    }
+    return JSON.stringify(v === undefined ? null : v);
+  }
+  function pcSameAsLocal(k, value) {
+    const local = localStorage.getItem(k);
+    if (local == null) return false;
+    try { return pcCanon(JSON.parse(local)) === pcCanon(value); } catch { return false; }
+  }
 
   const _pcOrigSet = localStorage.setItem.bind(localStorage);
   const _pcOrigRemove = localStorage.removeItem.bind(localStorage);
@@ -3412,16 +3427,15 @@ img, video, canvas, svg { max-width: 100%; }
           const remoteIds = new Set(remotePhotos.map((p) => p && p.id));
           const localOnly = localPhotos.filter((p) => p && !p.url && !remoteIds.has(p.id));
           const merged = [...remotePhotos, ...localOnly];
-          const incoming = JSON.stringify(merged);
-          if (localStorage.getItem(k) !== incoming) {
-            try { _pcOrigSet(k, incoming); changed = true; } catch {}
+          if (!pcSameAsLocal(k, merged)) {
+            try { _pcOrigSet(k, JSON.stringify(merged)); changed = true; } catch {}
           }
           continue;
         }
         if (k in remote) {
-          const incoming = JSON.stringify(remote[k]);
-          const local = localStorage.getItem(k);
-          if (local !== incoming) { try { _pcOrigSet(k, incoming); changed = true; } catch {} }
+          if (!pcSameAsLocal(k, remote[k])) {
+            try { _pcOrigSet(k, JSON.stringify(remote[k])); changed = true; } catch {}
+          }
         } else if (localStorage.getItem(k) != null) {
           try { _pcOrigRemove(k); changed = true; } catch {}
         }
@@ -3447,10 +3461,10 @@ img, video, canvas, svg { max-width: 100%; }
   }
 
   async function pcPushNow() {
-    if (!pcSupa) return;
+    if (!pcSupa) { pcPushPending = false; return; }
     const state = pcCollectState();
-    const json = JSON.stringify(state);
-    if (json === pcLastSyncedJson) return;
+    const json = pcCanon(state);
+    if (json === pcLastSyncedJson) { pcPushPending = false; return; }
     try {
       const { error } = await pcSupa
         .from('app_state')
@@ -3460,10 +3474,13 @@ img, video, canvas, svg { max-width: 100%; }
         );
       if (!error) pcLastSyncedJson = json;
     } catch (_) {}
+    // Only clear if no newer edit was queued while this push was in flight.
+    if (pcCanon(pcCollectState()) === json) pcPushPending = false;
   }
 
   function pcSchedulePush() {
     if (pcSuppressSync) return;
+    pcPushPending = true;
     clearTimeout(pcPushTimer);
     pcPushTimer = setTimeout(pcPushNow, 250);
   }
@@ -3473,7 +3490,7 @@ img, video, canvas, svg { max-width: 100%; }
   function pcFlushPushOnUnload() {
     if (!pcSupa) return;
     const state = pcCollectState();
-    const json = JSON.stringify(state);
+    const json = pcCanon(state);
     if (json === pcLastSyncedJson) return;
     try {
       fetch(SUPABASE_URL + '/rest/v1/app_state?on_conflict=key', {
@@ -3491,6 +3508,70 @@ img, video, canvas, svg { max-width: 100%; }
     } catch (_) {}
   }
 
+  // ---------- Live updates ----------
+  // Realtime channel (instant) + re-pull when the app returns to the
+  // foreground / regains focus / comes back online (phones suspend the
+  // socket) + re-subscribe if the channel drops + a 20 s poll while visible.
+  let pcChannel = null, pcPullInFlight = false, pcLastResume = 0;
+  let pcResubTimer = null, pcResubDelay = 2000;
+
+  function pcReceive(data) {
+    const incoming = pcCanon(data);
+    if (incoming === pcLastSyncedJson) return; // nothing new / echo of our own push
+    if (pcPushPending) return; // our newer local edit is about to overwrite it
+    pcLastSyncedJson = incoming;
+    pcMaybeApplyRemote(data);
+  }
+  async function pcPull() {
+    if (!pcSupa || pcPullInFlight) return;
+    pcPullInFlight = true;
+    try {
+      const { data, error } = await pcSupa
+        .from('app_state').select('data').eq('key', APP_KEY).maybeSingle();
+      if (!error && data && data.data && Object.keys(data.data).length > 0) pcReceive(data.data);
+    } catch (_) {}
+    pcPullInFlight = false;
+  }
+  function pcSubscribe() {
+    if (!pcSupa) return;
+    if (pcChannel) { try { pcSupa.removeChannel(pcChannel); } catch (_) {} }
+    const ch = pcSupa.channel('app_state_' + APP_KEY + '_' + Math.random().toString(36).slice(2, 8));
+    pcChannel = ch;
+    ch.on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'app_state',
+        filter: 'key=eq.' + APP_KEY,
+      }, (payload) => {
+        if (ch !== pcChannel || !payload.new || !payload.new.data) return;
+        pcReceive(payload.new.data);
+      })
+      .subscribe((status) => {
+        if (ch !== pcChannel) return; // replaced channel reporting its own shutdown
+        if (status === 'SUBSCRIBED') { pcResubDelay = 2000; pcPull(); }
+        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          if (pcResubTimer || document.hidden) return;
+          pcResubTimer = setTimeout(() => { pcResubTimer = null; pcSubscribe(); }, pcResubDelay);
+          pcResubDelay = Math.min(pcResubDelay * 2, 60000);
+        }
+      });
+  }
+  function pcOnResume() {
+    if (document.hidden || !pcSupa) return;
+    const now = Date.now();
+    if (now - pcLastResume < 1500) return;
+    pcLastResume = now;
+    if (!pcChannel || (pcChannel.state !== 'joined' && pcChannel.state !== 'joining')) {
+      clearTimeout(pcResubTimer); pcResubTimer = null; pcSubscribe();
+    }
+    pcPull();
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) pcOnResume(); });
+  window.addEventListener('focus', pcOnResume);
+  window.addEventListener('online', pcOnResume);
+  window.addEventListener('pageshow', (e) => { if (e.persisted) pcOnResume(); });
+  setInterval(() => { if (!document.hidden) pcPull(); }, 20 * 1000);
+
   // Initial sync: connect Supabase, pull current state, subscribe to
   // realtime updates so other devices' changes appear instantly.
   (async function pcInitCloudSync() {
@@ -3502,26 +3583,13 @@ img, video, canvas, svg { max-width: 100%; }
       const { data, error } = await pcSupa
         .from('app_state').select('data').eq('key', APP_KEY).maybeSingle();
       if (!error && data && data.data && Object.keys(data.data).length > 0) {
-        pcLastSyncedJson = JSON.stringify(data.data);
+        pcLastSyncedJson = pcCanon(data.data);
         pcMaybeApplyRemote(data.data);
       } else if (Object.keys(pcCollectState()).length > 0) {
         pcSchedulePush();
       }
     } catch (_) {}
-    pcSupa.channel('app_state_' + APP_KEY)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'app_state',
-        filter: 'key=eq.' + APP_KEY,
-      }, (payload) => {
-        if (!payload.new || !payload.new.data) return;
-        const incoming = JSON.stringify(payload.new.data);
-        if (incoming === pcLastSyncedJson) return; // echo of our own push
-        pcLastSyncedJson = incoming;
-        pcMaybeApplyRemote(payload.new.data);
-      })
-      .subscribe();
+    pcSubscribe();
     // Backfill: upload any photos still stored only on this device
     // (taken offline, or before Storage sync existed), one at a time.
     for (const p of photos.filter(x => x && !x.url && x.dataUrl)) {

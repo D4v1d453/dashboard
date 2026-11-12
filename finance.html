@@ -3381,6 +3381,20 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   safeRenderTicker();
   setInterval(safeRenderTicker, 1500);
 
+  // Live sync: every renderer reads straight from localStorage, so a
+  // remote change only needs a repaint (no page reload).
+  window.financeRerender = function () {
+    if (currencyEl) {
+      const cur = storeGet(CURRENCY_KEY);
+      if (cur && cur !== currencyEl.value) currencyEl.value = cur;
+    }
+    try { renderAllNetWorth(); } catch (e) {}
+    try { renderSubs(); } catch (e) {}
+    try { renderWishlist(); } catch (e) {}
+    try { renderOrders(); } catch (e) {}
+    safeRenderTicker();
+  };
+
 })();
 </script>
 <script>
@@ -3390,7 +3404,12 @@ document.addEventListener('DOMContentLoaded', function () {
     appKey: 'finance',
     syncedKeys: ['subs', 'wishlist', 'incoming_orders', 'nw_currency', 'nw:activity', 'nw:history'],
     syncedPrefixes: ['nw:'],
-    onApplied: function () { window.cloudSyncReload(); }
+    onApplied: function () {
+      window.cloudSyncRefresh(function () {
+        if (typeof window.financeRerender === 'function') window.financeRerender();
+        else location.reload();
+      });
+    }
   });
 });
 </script>

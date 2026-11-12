@@ -365,13 +365,46 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
       caffeineMgPerDay: 200, substances: [], logs: {}
     };
   }
-  async function pushWaterMergedToSupabase(localWater) {
-    if (window.location.pathname.endsWith('/health.html') ||
-        window.location.pathname.endsWith('health.html')) return;
-    if (!window.supabase || !TOPBAR_SUPABASE_URL || !TOPBAR_SUPABASE_KEY) return;
-    if (TOPBAR_SUPABASE_URL.indexOf('PASTE-') === 0) return;
+  function isHealthPage() {
+    const p = (window.location.pathname || '').toLowerCase();
+    return p.endsWith('health.html');
+  }
+  let waterClient = null;
+  function getWaterClient() {
+    if (!window.supabase || !TOPBAR_SUPABASE_URL || !TOPBAR_SUPABASE_KEY) return null;
+    if (TOPBAR_SUPABASE_URL.indexOf('PASTE-') === 0) return null;
+    if (!waterClient) waterClient = window.supabase.createClient(TOPBAR_SUPABASE_URL, TOPBAR_SUPABASE_KEY);
+    return waterClient;
+  }
+  // Keep the water pill live on pages that don't sync the 'health' row
+  // themselves (Health does, via sync.js). Fetches only the water value.
+  let lastLocalWaterAt = 0, waterPullInFlight = false;
+  async function pullWater() {
+    if (isHealthPage() || document.hidden || waterPullInFlight) return;
+    if (!document.getElementById('topbarWater')) return;
+    if (Date.now() - lastLocalWaterAt < 4000) return; // our own +1 is still being saved
+    const supa = getWaterClient();
+    if (!supa) return;
+    waterPullInFlight = true;
     try {
-      const supa = window.supabase.createClient(TOPBAR_SUPABASE_URL, TOPBAR_SUPABASE_KEY);
+      const { data, error } = await supa
+        .from('app_state').select('water:data->po_water_v1').eq('key', 'health').maybeSingle();
+      if (!error && data && data.water && typeof data.water === 'object' &&
+          Date.now() - lastLocalWaterAt >= 4000) {
+        const incoming = JSON.stringify(data.water);
+        if (localStorage.getItem('po_water_v1') !== incoming) {
+          try { localStorage.setItem('po_water_v1', incoming); } catch (e) {}
+          render();
+        }
+      }
+    } catch (e) {}
+    waterPullInFlight = false;
+  }
+  async function pushWaterMergedToSupabase(localWater) {
+    if (isHealthPage()) return;
+    const supa = getWaterClient();
+    if (!supa) return;
+    try {
       const { data } = await supa
         .from('app_state').select('data').eq('key', 'health').maybeSingle();
       const current = (data && data.data) || {};
@@ -389,6 +422,7 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
     state.logs = state.logs || {};
     const k = calendarDateKey();
     state.logs[k] = (state.logs[k] || 0) + 1;
+    lastLocalWaterAt = Date.now();
     try { localStorage.setItem('po_water_v1', JSON.stringify(state)); } catch (e) {}
     render();
     const btn = document.getElementById('topbarWaterAdd');
@@ -436,9 +470,13 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
     lockGestures();
     startModalLock();
     window.addEventListener('storage', render);
-    window.addEventListener('focus', render);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+    window.addEventListener('cloud-sync-applied', render); // sync.js pulled a change
+    window.addEventListener('focus', () => { render(); pullWater(); });
+    window.addEventListener('online', pullWater);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { render(); pullWater(); } });
     setInterval(render, 30 * 1000);
+    setInterval(pullWater, 20 * 1000);
+    pullWater();
   }
 
   if (document.readyState === 'loading') {
