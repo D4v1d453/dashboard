@@ -794,7 +794,7 @@ body::after {
     <div class="day-ring-text">
       <div class="day-ring-status"    id="dayRingStatus">Loading…</div>
       <div class="day-ring-remaining" id="dayRingRemaining">—</div>
-      <div class="day-ring-hours">8:00 AM – 12:00 AM</div>
+      <div class="day-ring-hours" id="dayRingHours">7:30 AM – 11:30 PM</div>
     </div>
   </div>
 
@@ -1198,8 +1198,44 @@ body::after {
   // Paste your Anthropic key here to enable ✨ Polish. Empty = falls back to plain add.
   const ANTHROPIC_API_KEY = '';
 
-  const WAKE_HOUR  = 8;
-  const SLEEP_HOUR = 24;
+  // Awake window, in hours (CET): 7:30 AM – 11:30 PM.
+  const WAKE_HOUR  = 7.5;
+  const SLEEP_HOUR = 23.5;
+
+  // ---------- app clock: Central European Time ----------
+  // Europe/Madrid = CET (UTC+1), CEST (UTC+2) in summer — regardless of the
+  // device's own time zone. Returns a Date whose local fields (getHours,
+  // getDate, …) read as CET wall-clock time, so the existing date math works.
+  const APP_TZ = 'Europe/Madrid';
+  const cetFmt = (function () {
+    try {
+      return new Intl.DateTimeFormat('en-GB', {
+        timeZone: APP_TZ, hourCycle: 'h23',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+      });
+    } catch (e) { return null; }
+  })();
+  function cetNow() {
+    const now = new Date();
+    if (!cetFmt) return now;
+    const p = {};
+    cetFmt.formatToParts(now).forEach((x) => { p[x.type] = x.value; });
+    return new Date(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second);
+  }
+  function tzLabel() {
+    try {
+      const part = new Intl.DateTimeFormat('en-GB', { timeZone: APP_TZ, timeZoneName: 'short' })
+        .formatToParts(new Date()).find((x) => x.type === 'timeZoneName');
+      // en-GB gives "CET"/"CEST"; some engines give "GMT+1"/"GMT+2".
+      if (part) return part.value === 'GMT+2' ? 'CEST' : part.value === 'GMT+1' ? 'CET' : part.value;
+    } catch (e) {}
+    return 'CET';
+  }
+  function formatHour(h) {
+    const hh = Math.floor(h) % 24, mm = Math.round((h - Math.floor(h)) * 60);
+    return ((hh % 12) || 12) + ':' + String(mm).padStart(2, '0') + ' ' + (hh >= 12 ? 'PM' : 'AM');
+  }
 
   // ---------- storage helpers ----------
   function storeGet(key) {
@@ -1225,7 +1261,7 @@ body::after {
   function pad2(n) { return String(n).padStart(2, '0'); }
   function dateToKey(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
   function getActiveDateString() {
-    const now = new Date();
+    const now = cetNow();
     if (now.getHours() < 6) {
       const d = new Date(now);
       d.setDate(d.getDate() - 1);
@@ -1234,7 +1270,7 @@ body::after {
     return dateToKey(now);
   }
   function getTomorrowDateString() {
-    const now = new Date();
+    const now = cetNow();
     const d = new Date(now);
     if (now.getHours() >= 6) d.setDate(d.getDate() + 1);
     return dateToKey(d);
@@ -1417,9 +1453,11 @@ body::after {
   const fillEl = document.getElementById('dayRingFill');
   fillEl.setAttribute('stroke-dasharray', C);
   fillEl.setAttribute('stroke-dashoffset', C);
+  document.getElementById('dayRingHours').textContent =
+    formatHour(WAKE_HOUR) + ' – ' + formatHour(SLEEP_HOUR);
 
   function updateDayRing() {
-    const now = new Date();
+    const now = cetNow();
     const hours = now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
     const percentEl   = document.getElementById('dayRingPercent');
     const phaseEl     = document.getElementById('dayRingPhase');
@@ -1427,7 +1465,7 @@ body::after {
     const statusEl    = document.getElementById('dayRingStatus');
     const remainingEl = document.getElementById('dayRingRemaining');
 
-    clockEl.textContent = formatClock(now);
+    clockEl.textContent = formatClock(now) + ' ' + tzLabel();
 
     if (hours < WAKE_HOUR) {
       fillEl.setAttribute('stroke-dashoffset', C);
