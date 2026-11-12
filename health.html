@@ -356,11 +356,16 @@ main {
 .stack-add-label { margin-bottom: 10px; }
 .stack-add-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 110px 90px;
+  /* minmax(0, 1fr): a plain 1fr track can't shrink below an <input>'s
+     intrinsic ~20ch width, which pushed the row (and the whole page)
+     wider than narrow phones and dragged the fixed bottom bar with it. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 110px 90px;
   gap: 6px;
   align-items: center;
 }
+.stack-add-row > * { min-width: 0; }
 .stack-input {
+  width: 100%; min-width: 0;
   font-size: 13px;
   padding: 9px 11px;
   border-radius: 10px;
@@ -460,7 +465,7 @@ main {
   .stack-card { padding: 18px 16px 14px; }
   .stack-item { grid-template-columns: 28px 1fr auto; gap: 8px; }
   .stack-item .stack-low-btn { grid-column: 2 / 4; margin-top: 4px; justify-self: start; }
-  .stack-add-row { grid-template-columns: 1fr 1fr; }
+  .stack-add-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .stack-add-row .stack-add-btn { grid-column: 1 / -1; }
   .stack-add-row .stack-select { grid-column: 1 / -1; }
   .stack-search-results { width: 100%; }
@@ -542,17 +547,11 @@ main {
     return `${y}-${m}-${d}`;
   }
 
-  const TEMPLATE_VERSION = 5;
+  // v6: stack trimmed to Creatine Monohydrate only.
+  const TEMPLATE_VERSION = 6;
 
   const STACK_DEFAULTS = [
-    { id: 'm1', name: 'XXXXX - Supplement of choice', dose: '', window: 'morning', note: 'how much MG, meal times, any data below', tag: null,    ordered: true  },
-    { id: 'm2', name: 'XXXXX - Supplement of choice', dose: '', window: 'morning', note: 'how much MG, meal times, any data below', tag: 'stack', ordered: true  },
-    { id: 'm3', name: 'XXXXX - Supplement of choice', dose: '', window: 'morning', note: 'how much MG, meal times, any data below', tag: null,    ordered: true  },
-    { id: 'l1', name: 'XXXXX - Supplement of choice', dose: '', window: 'lunch',   note: 'how much MG, meal times, any data below', tag: null,    ordered: true  },
-    { id: 'l2', name: 'XXXXX - Supplement of choice', dose: '', window: 'lunch',   note: 'how much MG, meal times, any data below', tag: null,    ordered: true  },
-    { id: 'e1', name: 'XXXXX - Supplement of choice', dose: '', window: 'evening', note: 'how much MG, meal times, any data below', tag: null,    ordered: true  },
-    { id: 'e2', name: 'XXXXX - Supplement of choice', dose: '', window: 'evening', note: 'how much MG, meal times, any data below', tag: 'not-ordered', ordered: false },
-    { id: 'e3', name: 'XXXXX - Supplement of choice', dose: '', window: 'evening', note: 'how much MG, meal times, any data below', tag: null,    ordered: true  },
+    { id: 'creatine', name: 'Creatine Monohydrate', dose: '5g', window: 'anytime', note: 'Daily — consistency matters more than timing', tag: null, ordered: true },
   ];
 
   const STACK_WINDOWS = [
@@ -642,17 +641,23 @@ main {
 
   let todayKey = `stack:taken:${getActiveDate()}`;
 
+  // Older versions: keep only the user's own creatine entry (with its dose,
+  // window and notes); everything else is dropped. Empty → default creatine.
   function getItems() {
     const storedVersion = storeGet('stack:version');
     const stored = storeGet('stack:items');
-    if (!stored || !Array.isArray(stored) || !stored.length || storedVersion !== TEMPLATE_VERSION) {
-      const fresh = JSON.parse(JSON.stringify(STACK_DEFAULTS));
-      storeSet('stack:items', fresh);
-      storeSet('stack:version', TEMPLATE_VERSION);
-      return fresh;
-    }
-    return stored;
+    if (Array.isArray(stored) && stored.length && storedVersion === TEMPLATE_VERSION) return stored;
+    const kept = (Array.isArray(stored) && storedVersion !== TEMPLATE_VERSION)
+      ? stored.filter((i) => i && /creatine/i.test(String(i.name || '')))
+      : [];
+    const items = kept.length ? kept : JSON.parse(JSON.stringify(STACK_DEFAULTS));
+    storeSet('stack:items', items);
+    storeSet('stack:version', TEMPLATE_VERSION);
+    return items;
   }
+  // Called after a cloud pull so an old remote list gets migrated + pushed
+  // back instead of overwriting the trimmed local one.
+  window.healthMigrateStack = getItems;
   function setItems(items) { storeSet('stack:items', items); }
   function getTaken() { return storeGet(todayKey) || {}; }
   function setTaken(map) { storeSet(todayKey, map); }
@@ -1042,13 +1047,108 @@ main {
 })();
 </script>
 <script>
+// ===== Water embed: one scroll area, not two =====
+// The water tracker is an iframe. With a fixed height its content (~950px on
+// phones) overflowed into an inner scroll area, and once it filled the screen
+// every swipe landed inside it. Instead, size the iframe to its content so only
+// the Health page scrolls, and keep the tracker's settings modal inside the
+// part of the iframe that is actually on screen.
+(function () {
+  'use strict';
+  const frame = document.querySelector('.water-iframe');
+  if (!frame) return;
+  let wiredDoc = null;
+  let lockedScroll = false;
+
+  function frameDoc() {
+    try { return frame.contentDocument; } catch (e) { return null; }
+  }
+  function fit() {
+    const d = frameDoc();
+    if (!d || !d.body) return;
+    const shell = d.querySelector('.shell') || d.body;
+    const h = Math.ceil(shell.getBoundingClientRect().bottom + (d.defaultView ? d.defaultView.scrollY : 0));
+    if (h > 0 && Math.abs(frame.getBoundingClientRect().height - h) > 1) frame.style.height = h + 'px';
+  }
+
+  // Visible slice of the iframe, between the sticky top bar and the bottom tabs.
+  function visibleSlice() {
+    const r = frame.getBoundingClientRect();
+    const vv = window.visualViewport;
+    const vh = vv ? vv.height : window.innerHeight;
+    const tb = document.getElementById('topbar');
+    const bb = document.getElementById('bottombar');
+    const vTop = tb ? Math.max(0, tb.getBoundingClientRect().bottom) : 0;
+    const vBot = bb ? Math.min(vh, bb.getBoundingClientRect().top) : vh;
+    const top = Math.max(0, vTop - r.top);
+    const bottom = Math.min(r.height, vBot - r.top);
+    return { top, height: Math.max(0, bottom - top), vTop };
+  }
+  function placeModals() {
+    const d = frameDoc();
+    if (!d) return;
+    const all = d.querySelectorAll('.modal-bg');
+    const open = d.querySelectorAll('.modal-bg.show');
+    all.forEach((bg) => {
+      if (bg.classList.contains('show')) return;
+      ['top', 'bottom', 'height'].forEach((p) => bg.style.removeProperty(p));
+      const m = bg.querySelector('.modal');
+      if (m) { m.style.removeProperty('height'); m.style.removeProperty('max-height'); }
+    });
+    if (!open.length) {
+      if (lockedScroll) { document.documentElement.style.overflow = ''; lockedScroll = false; }
+      return;
+    }
+    let s = visibleSlice();
+    // Bring the tracker into view first if most of it is off screen.
+    if (s.height < Math.min(360, frame.getBoundingClientRect().height)) {
+      window.scrollBy(0, frame.getBoundingClientRect().top - s.vTop);
+      s = visibleSlice();
+    }
+    if (!lockedScroll) { document.documentElement.style.overflow = 'hidden'; lockedScroll = true; }
+    const narrow = (d.defaultView ? d.defaultView.innerWidth : 999) <= 480;
+    open.forEach((bg) => {
+      bg.style.setProperty('top', s.top + 'px', 'important');
+      bg.style.setProperty('bottom', 'auto', 'important');
+      bg.style.setProperty('height', s.height + 'px', 'important');
+      const m = bg.querySelector('.modal');
+      if (!m) return;
+      const mh = narrow ? s.height : Math.max(0, s.height - 40);
+      m.style.setProperty('max-height', mh + 'px', 'important');
+      if (narrow) m.style.setProperty('height', mh + 'px', 'important');
+    });
+  }
+
+  function wire() {
+    const d = frameDoc();
+    if (!d || !d.body || d === wiredDoc || d.URL === 'about:blank') return;
+    wiredDoc = d;
+    fit();
+    const shell = d.querySelector('.shell') || d.body;
+    if ('ResizeObserver' in window) new ResizeObserver(fit).observe(shell);
+    new MutationObserver(() => { fit(); placeModals(); })
+      .observe(d.body, { attributes: true, attributeFilter: ['class', 'hidden'], childList: true, subtree: true });
+    // Images/fonts settling after load.
+    setTimeout(fit, 300);
+    setTimeout(fit, 1200);
+  }
+  frame.addEventListener('load', wire);
+  wire();
+  window.addEventListener('resize', () => { fit(); placeModals(); });
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', placeModals);
+})();
+</script>
+<script>
 document.addEventListener('DOMContentLoaded', function () {
   if (typeof initCloudSync !== 'function') return;
   initCloudSync({
     appKey: 'health',
     syncedKeys: ['stack:items', 'stack:version', 'stack:low', 'po_water_v1'],
     syncedPrefixes: ['stack:taken:'],
-    onApplied: function () { window.cloudSyncReload(); }
+    onApplied: function () {
+      if (typeof window.healthMigrateStack === 'function') window.healthMigrateStack();
+      window.cloudSyncReload();
+    }
   });
 });
 </script>

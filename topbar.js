@@ -164,7 +164,6 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
   // -------- App-wide mobile/PWA CSS (every page, incl. finance + embeds) --------
   const globalCss = `
 :root { color-scheme: dark; }
-html, body { overscroll-behavior: none; }
 * { -webkit-tap-highlight-color: transparent; }
 .topbar, .bottombar, .bottom-tabs, .tabbar, button, .topbar-pill-count {
   -webkit-user-select: none; user-select: none;
@@ -235,7 +234,12 @@ html, body { overscroll-behavior: none; }
     if (document.getElementById('app-global-style')) return;
     const style = document.createElement('style');
     style.id = 'app-global-style';
-    style.textContent = globalCss;
+    // No pull-to-refresh / rubber-band on top-level pages. Never inside an
+    // embed: overscroll-behavior on an iframe's root stops scroll chaining,
+    // so a swipe inside the embedded water tracker could never scroll the
+    // Health page back up.
+    style.textContent = globalCss +
+      (isEmbedded() ? '' : '\nhtml, body { overscroll-behavior: none; }\n');
     document.head.appendChild(style);
   }
 
