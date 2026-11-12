@@ -20,9 +20,21 @@ Open any `.html` file directly in your browser — no build step, no install.
 | [finance.html](finance.html) | Finances |
 | [gym.html](gym.html) | Progressive overload gym tracker |
 | [uni.html](uni.html) | University — subjects, syllabus progress, deadlines, continuous-assessment grades |
+| [auth.html](auth.html) | Sign in / create account / forgot & reset password |
+| [auth.js](auth.js) | Supabase Auth for every page — session, page protection, sign-out |
 | [topbar.js](topbar.js) | Shared top bar — auto-injected into pages that `<script src="topbar.js">` |
 
-Each app keeps its state in browser `localStorage` and syncs it to Supabase (`app_state` table, one row per section) through [sync.js](sync.js), with live updates across devices. Run [supabase/enable-realtime.sql](supabase/enable-realtime.sql) once in the Supabase SQL Editor so changes arrive instantly; without it they arrive within ~20 s via polling.
+Each app keeps its state in browser `localStorage` and syncs it to Supabase (`app_state` table, one row per user and section) through [sync.js](sync.js), with live updates across devices. Run [supabase/enable-realtime.sql](supabase/enable-realtime.sql) once in the Supabase SQL Editor so changes arrive instantly; without it they arrive within ~20 s via polling.
+
+## Accounts & security
+
+Every page requires a signed-in Supabase account ([auth.js](auth.js)). Data is private per account: Row Level Security on `app_state` and on the `progress-photos` bucket only lets a user read and write their own rows/files. The publishable key in the frontend is public by design; never put a secret / service-role key in this repo.
+
+One-time database setup (Supabase → SQL Editor), in order:
+
+1. [supabase/00-inspect.sql](supabase/00-inspect.sql) — read-only overview of tables, policies, buckets.
+2. [supabase/01-auth-migration.sql](supabase/01-auth-migration.sql) — backup, `user_id` column, assigns existing rows to your account, owner-only RLS. Edit the email line first.
+3. [supabase/02-storage-migration.sql](supabase/02-storage-migration.sql) — private photo bucket with owner-only access. Edit the email line first.
 
 ## Building from scratch
 

@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050506">
+<meta name="color-scheme" content="dark">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Dashboard">
+<meta name="referrer" content="no-referrer">
+<title>Sign in · Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
+<style>
+:root {
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: #050506;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+body {
+  min-height: 100vh; min-height: 100dvh;
+  display: flex; align-items: center; justify-content: center;
+  padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+  position: relative; overflow-x: hidden;
+}
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background:
+    radial-gradient(circle at 82% 14%, rgba(224, 118, 88, 0.16), transparent 45%),
+    radial-gradient(circle at 18% 90%, rgba(180, 180, 200, 0.06), transparent 50%);
+  filter: blur(40px); pointer-events: none; z-index: -2;
+}
+body::after {
+  content: ''; position: fixed; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px; pointer-events: none; z-index: -1;
+}
+
+.auth { width: 100%; max-width: 400px; }
+.brand { text-align: center; margin-bottom: 22px; }
+.brand-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary); margin-bottom: 8px;
+}
+.brand-title {
+  margin: 0;
+  font-size: 28px; font-weight: 700; letter-spacing: -0.025em;
+  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.card {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  padding: 22px;
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+}
+.seg {
+  display: flex; gap: 4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px; padding: 3px;
+  margin-bottom: 18px;
+}
+.seg button {
+  flex: 1; padding: 9px 4px; border: none; background: transparent;
+  color: var(--text-tertiary); border-radius: 7px;
+  font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.seg button.active { background: linear-gradient(180deg, #ffffff 0%, #e8e5dd 100%); color: #0a0a0b; }
+.view-title { margin: 0 0 6px; font-size: 17px; font-weight: 700; color: var(--text-primary); }
+.view-sub { margin: 0 0 16px; font-size: 13px; line-height: 1.45; color: var(--text-tertiary); }
+.field { display: flex; flex-direction: column; gap: 7px; margin-bottom: 12px; }
+.field label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.input {
+  width: 100%; min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  background: rgba(0,0,0,0.28);
+  color: var(--text-primary);
+  font-family: inherit; font-size: 16px;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+.input::placeholder { color: var(--text-tertiary); }
+.input:focus { border-color: rgba(255,255,255,0.28); background: rgba(0,0,0,0.36); }
+.input.invalid { border-color: rgba(255,107,107,0.55); }
+.field-err { font-size: 11.5px; color: var(--danger); min-height: 0; }
+.field-err:empty { display: none; }
+.pw-wrap { position: relative; }
+.pw-wrap .input { padding-right: 64px; }
+.pw-toggle {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  padding: 6px 10px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--text-tertiary);
+  font-family: inherit; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer;
+}
+.pw-toggle:hover { color: var(--text-secondary); }
+.row-end { display: flex; justify-content: flex-end; margin: -4px 0 12px; }
+.link {
+  border: 0; background: none; padding: 4px 0;
+  color: var(--text-tertiary);
+  font-family: inherit; font-size: 12.5px; font-weight: 600;
+  text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+}
+.link:hover { color: var(--text-secondary); }
+.primary {
+  width: 100%;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 46px; padding: 12px 20px;
+  border: 0; border-radius: 12px;
+  background: linear-gradient(180deg, #FFFFFF 0%, #E8E5DD 100%);
+  color: #0A0A0B;
+  font-family: inherit; font-size: 14px; font-weight: 700;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 2px 8px rgba(0,0,0,0.35), 0 8px 22px rgba(0,0,0,0.25);
+  transition: transform 0.1s, filter 0.15s, opacity 0.15s;
+}
+.primary:hover { filter: brightness(1.06); }
+.primary:active { transform: translateY(1px); }
+.primary:disabled { opacity: 0.6; cursor: progress; }
+.spinner {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid rgba(10,10,11,0.25); border-top-color: #0A0A0B;
+  animation: spin 0.7s linear infinite; display: none;
+}
+.primary.loading .spinner { display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.msg {
+  margin: 0 0 14px; padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12.5px; line-height: 1.45;
+}
+.msg:empty { display: none; }
+.msg.error { color: #FFC2C2; background: rgba(255,107,107,0.10); border: 1px solid rgba(255,107,107,0.25); }
+.msg.info  { color: #C9F5DD; background: rgba(107,227,164,0.08); border: 1px solid rgba(107,227,164,0.22); }
+.foot { margin-top: 16px; text-align: center; font-size: 12.5px; color: var(--text-tertiary); }
+.hint { font-size: 11.5px; color: var(--text-tertiary); margin-top: -4px; }
+[hidden] { display: none !important; }
+@media (max-width: 400px) {
+  .card { padding: 18px 16px; }
+  .brand-title { font-size: 24px; }
+}
+</style>
+</head>
+<body>
+<main class="auth">
+  <div class="brand">
+    <div class="brand-eyebrow">Personal OS</div>
+    <h1 class="brand-title">Dashboard</h1>
+  </div>
+
+  <div class="card">
+    <div class="seg" id="seg" role="tablist">
+      <button type="button" data-view="signin" role="tab">Sign in</button>
+      <button type="button" data-view="signup" role="tab">Create account</button>
+    </div>
+
+    <div class="msg" id="msg" role="alert" aria-live="polite"></div>
+
+    <!-- Sign in -->
+    <form id="vSignin" novalidate>
+      <div class="field">
+        <label for="siEmail">Email</label>
+        <input class="input" id="siEmail" type="email" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" required>
+        <div class="field-err" id="siEmailErr"></div>
+      </div>
+      <div class="field">
+        <label for="siPass">Password</label>
+        <div class="pw-wrap">
+          <input class="input" id="siPass" type="password" autocomplete="current-password" required>
+          <button type="button" class="pw-toggle" data-for="siPass">Show</button>
+        </div>
+        <div class="field-err" id="siPassErr"></div>
+      </div>
+      <div class="row-end"><button type="button" class="link" data-go="forgot">Forgot password?</button></div>
+      <button type="submit" class="primary" id="siBtn"><span class="spinner"></span><span>Sign in</span></button>
+    </form>
+
+    <!-- Create account -->
+    <form id="vSignup" novalidate hidden>
+      <div class="field">
+        <label for="suEmail">Email</label>
+        <input class="input" id="suEmail" type="email" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" required>
+        <div class="field-err" id="suEmailErr"></div>
+      </div>
+      <div class="field">
+        <label for="suPass">Password</label>
+        <div class="pw-wrap">
+          <input class="input" id="suPass" type="password" autocomplete="new-password" minlength="8" required>
+          <button type="button" class="pw-toggle" data-for="suPass">Show</button>
+        </div>
+        <div class="field-err" id="suPassErr"></div>
+      </div>
+      <div class="field">
+        <label for="suPass2">Confirm password</label>
+        <input class="input" id="suPass2" type="password" autocomplete="new-password" required>
+        <div class="field-err" id="suPass2Err"></div>
+      </div>
+      <div class="hint">At least 8 characters.</div>
+      <div style="height:14px"></div>
+      <button type="submit" class="primary" id="suBtn"><span class="spinner"></span><span>Create account</span></button>
+    </form>
+
+    <!-- Forgot password -->
+    <form id="vForgot" novalidate hidden>
+      <h2 class="view-title">Reset your password</h2>
+      <p class="view-sub">Enter your account email and we'll send you a link to choose a new password.</p>
+      <div class="field">
+        <label for="fpEmail">Email</label>
+        <input class="input" id="fpEmail" type="email" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" required>
+        <div class="field-err" id="fpEmailErr"></div>
+      </div>
+      <button type="submit" class="primary" id="fpBtn"><span class="spinner"></span><span>Send reset link</span></button>
+      <div class="foot"><button type="button" class="link" data-go="signin">Back to sign in</button></div>
+    </form>
+
+    <!-- Set new password (after clicking the email link) -->
+    <form id="vReset" novalidate hidden>
+      <h2 class="view-title">Choose a new password</h2>
+      <p class="view-sub" id="rpSub">Set a new password for your account.</p>
+      <div class="field">
+        <label for="rpPass">New password</label>
+        <div class="pw-wrap">
+          <input class="input" id="rpPass" type="password" autocomplete="new-password" minlength="8" required>
+          <button type="button" class="pw-toggle" data-for="rpPass">Show</button>
+        </div>
+        <div class="field-err" id="rpPassErr"></div>
+      </div>
+      <div class="field">
+        <label for="rpPass2">Confirm new password</label>
+        <input class="input" id="rpPass2" type="password" autocomplete="new-password" required>
+        <div class="field-err" id="rpPass2Err"></div>
+      </div>
+      <button type="submit" class="primary" id="rpBtn"><span class="spinner"></span><span>Save new password</span></button>
+    </form>
+
+    <!-- Check your email -->
+    <div id="vSent" hidden>
+      <h2 class="view-title" id="sentTitle">Check your email</h2>
+      <p class="view-sub" id="sentText"></p>
+      <button type="button" class="primary" id="resendBtn"><span class="spinner"></span><span>Resend email</span></button>
+      <div class="foot"><button type="button" class="link" data-go="signin">Back to sign in</button></div>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  const A = window.appAuth;
+  const client = A && A.client;
+  const $ = (id) => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  const hashParams = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+  const next = A ? A.safeNext(params.get('next')) : '/index.html';
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const MIN_PW = 8;
+
+  const views = { signin: $('vSignin'), signup: $('vSignup'), forgot: $('vForgot'), reset: $('vReset'), sent: $('vSent') };
+  let current = 'signin';
+  let recovering = params.get('mode') === 'reset' || hashParams.get('type') === 'recovery';
+  let sentContext = null; // { type: 'signup'|'recovery', email }
+
+  // ---------- UI helpers ----------
+  function show(view, opts) {
+    current = view;
+    Object.keys(views).forEach((k) => { views[k].hidden = k !== view; });
+    $('seg').hidden = !(view === 'signin' || view === 'signup');
+    $('seg').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
+    if (!opts || !opts.keepMsg) setMsg('');
+    clearFieldErrors();
+    const first = views[view].querySelector('input');
+    if (first && !(opts && opts.noFocus)) setTimeout(() => first.focus(), 30);
+  }
+  function setMsg(text, kind) {
+    const m = $('msg');
+    m.textContent = text || '';
+    m.className = 'msg' + (text ? ' ' + (kind || 'error') : '');
+  }
+  function fieldErr(inputId, text) {
+    const el = $(inputId), err = $(inputId + 'Err');
+    if (el) el.classList.toggle('invalid', !!text);
+    if (err) err.textContent = text || '';
+    return !text;
+  }
+  function clearFieldErrors() {
+    document.querySelectorAll('.input.invalid').forEach((el) => el.classList.remove('invalid'));
+    document.querySelectorAll('.field-err').forEach((el) => { el.textContent = ''; });
+  }
+  function busy(btnId, on) {
+    const b = $(btnId);
+    b.disabled = on;
+    b.classList.toggle('loading', on);
+  }
+  function friendly(error) {
+    const raw = (error && (error.message || error.error_description || String(error))) || '';
+    const msg = raw.toLowerCase();
+    const status = error && error.status;
+    if (!navigator.onLine || /failed to fetch|network|load failed/.test(msg)) return "Can't reach the server. Check your connection and try again.";
+    if (/invalid login credentials/.test(msg)) return 'Wrong email or password.';
+    if (/email not confirmed/.test(msg)) return 'Please confirm your email first — check your inbox for the confirmation link.';
+    if (/already registered|already exists/.test(msg)) return 'An account with this email already exists. Sign in instead.';
+    if (/signups? not allowed|signup is disabled/.test(msg)) return 'New accounts are disabled for this app.';
+    if (status === 429 || /rate limit|too many|security purposes/.test(msg)) return 'Too many attempts. Wait a minute and try again.';
+    if (/should be different/.test(msg)) return 'Choose a password different from your current one.';
+    if (/password/.test(msg) && /(weak|characters|short|least)/.test(msg)) return 'That password is too weak. Use at least ' + MIN_PW + ' characters.';
+    if (/expired|invalid.*(token|link|otp)|otp_expired/.test(msg)) return 'This link is invalid or has expired. Request a new one.';
+    return raw || 'Something went wrong. Please try again.';
+  }
+  function goNext() { location.replace(next); }
+  function afterSignIn(session) {
+    if (session && session.user) A.adoptDevice(session.user.id);
+    goNext();
+  }
+
+  // ---------- wiring ----------
+  $('seg').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) show(b.dataset.view); });
+  document.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => {
+    if (b.dataset.go === 'forgot') $('fpEmail').value = $('siEmail').value.trim();
+    show(b.dataset.go);
+  }));
+  document.querySelectorAll('.pw-toggle').forEach((b) => b.addEventListener('click', () => {
+    const input = $(b.dataset.for);
+    const showPw = input.type === 'password';
+    input.type = showPw ? 'text' : 'password';
+    b.textContent = showPw ? 'Hide' : 'Show';
+  }));
+
+  // Sign in
+  $('vSignin').addEventListener('submit', async (e) => {
+    e.preventDefault(); clearFieldErrors(); setMsg('');
+    const email = $('siEmail').value.trim(), password = $('siPass').value;
+    let ok = fieldErr('siEmail', !email ? 'Enter your email.' : !EMAIL_RE.test(email) ? 'Enter a valid email address.' : '');
+    ok = fieldErr('siPass', password ? '' : 'Enter your password.') && ok;
+    if (!ok) return;
+    busy('siBtn', true);
+    try {
+      const { data, error } = await client.auth.signInWithPassword({ email, password });
+      if (error) {
+        if (/email not confirmed/i.test(error.message || '')) {
+          sentContext = { type: 'signup', email };
+          showSent('Confirm your email', 'Your account isn’t confirmed yet. We sent a confirmation link to ' + email + '. Open it, then sign in.');
+          return;
+        }
+        throw error;
+      }
+      afterSignIn(data.session);
+    } catch (err) { setMsg(friendly(err)); }
+    finally { busy('siBtn', false); }
+  });
+
+  // Create account
+  $('vSignup').addEventListener('submit', async (e) => {
+    e.preventDefault(); clearFieldErrors(); setMsg('');
+    const email = $('suEmail').value.trim(), p1 = $('suPass').value, p2 = $('suPass2').value;
+    let ok = fieldErr('suEmail', !email ? 'Enter your email.' : !EMAIL_RE.test(email) ? 'Enter a valid email address.' : '');
+    ok = fieldErr('suPass', p1.length < MIN_PW ? 'Use at least ' + MIN_PW + ' characters.' : '') && ok;
+    ok = fieldErr('suPass2', p2 !== p1 ? 'Passwords don’t match.' : '') && ok;
+    if (!ok) return;
+    busy('suBtn', true);
+    try {
+      const { data, error } = await client.auth.signUp({
+        email, password: p1,
+        options: { emailRedirectTo: location.origin + '/auth.html' },
+      });
+      if (error) throw error;
+      // Supabase returns a user with no identities when the email is taken
+      // (and doesn't reveal it otherwise).
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        setMsg('An account with this email already exists. Sign in instead.');
+        return;
+      }
+      if (data.session) { afterSignIn(data.session); return; }   // email confirmation is off
+      sentContext = { type: 'signup', email };
+      showSent('Confirm your email', 'We sent a confirmation link to ' + email + '. Open it on this or any device to activate your account, then sign in.');
+    } catch (err) { setMsg(friendly(err)); }
+    finally { busy('suBtn', false); }
+  });
+
+  // Forgot password
+  $('vForgot').addEventListener('submit', async (e) => {
+    e.preventDefault(); clearFieldErrors(); setMsg('');
+    const email = $('fpEmail').value.trim();
+    if (!fieldErr('fpEmail', !email ? 'Enter your email.' : !EMAIL_RE.test(email) ? 'Enter a valid email address.' : '')) return;
+    busy('fpBtn', true);
+    try {
+      const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: location.origin + '/auth.html?mode=reset' });
+      if (error) throw error;
+      sentContext = { type: 'recovery', email };
+      showSent('Check your email', 'If an account exists for ' + email + ', you’ll get a link to choose a new password. It may take a minute — check spam too.');
+    } catch (err) { setMsg(friendly(err)); }
+    finally { busy('fpBtn', false); }
+  });
+
+  // New password (recovery session from the email link)
+  $('vReset').addEventListener('submit', async (e) => {
+    e.preventDefault(); clearFieldErrors(); setMsg('');
+    const p1 = $('rpPass').value, p2 = $('rpPass2').value;
+    let ok = fieldErr('rpPass', p1.length < MIN_PW ? 'Use at least ' + MIN_PW + ' characters.' : '');
+    ok = fieldErr('rpPass2', p2 !== p1 ? 'Passwords don’t match.' : '') && ok;
+    if (!ok) return;
+    busy('rpBtn', true);
+    try {
+      const { data: s } = await client.auth.getSession();
+      if (!s || !s.session) throw new Error('Reset link expired');
+      const { error } = await client.auth.updateUser({ password: p1 });
+      if (error) throw error;
+      recovering = false;
+      setMsg('Password updated. Signing you in…', 'info');
+      setTimeout(() => afterSignIn(s.session), 700);
+    } catch (err) { setMsg(friendly(err)); }
+    finally { busy('rpBtn', false); }
+  });
+
+  function showSent(title, text) {
+    $('sentTitle').textContent = title;
+    $('sentText').textContent = text;
+    show('sent', { noFocus: true });
+  }
+  let resendCooldown = 0;
+  $('resendBtn').addEventListener('click', async () => {
+    if (!sentContext || Date.now() < resendCooldown) { setMsg('Please wait a moment before resending.', 'info'); return; }
+    busy('resendBtn', true);
+    try {
+      const r = sentContext.type === 'recovery'
+        ? await client.auth.resetPasswordForEmail(sentContext.email, { redirectTo: location.origin + '/auth.html?mode=reset' })
+        : await client.auth.resend({ type: 'signup', email: sentContext.email, options: { emailRedirectTo: location.origin + '/auth.html' } });
+      if (r.error) throw r.error;
+      resendCooldown = Date.now() + 60000;
+      setMsg('Sent again. Check your inbox (and spam).', 'info');
+    } catch (err) { setMsg(friendly(err)); }
+    finally { busy('resendBtn', false); }
+  });
+
+  // ---------- boot ----------
+  if (!client) {
+    show('signin', { noFocus: true });
+    setMsg("Can't load the sign-in service. Check your connection and reload.");
+    return;
+  }
+  // Error coming back from an email link (e.g. #error_code=otp_expired).
+  const linkErr = hashParams.get('error_description') || hashParams.get('error');
+  const reason = params.get('reason');
+
+  client.auth.onAuthStateChange((event, session) => {
+    if (event === 'PASSWORD_RECOVERY') { recovering = true; show('reset'); }
+    else if (event === 'SIGNED_IN' && session && !recovering && current !== 'reset') {
+      // e.g. returning from the email-confirmation link
+      afterSignIn(session);
+    }
+  });
+
+  A.ready.then((session) => {
+    if (linkErr) {
+      show(recovering ? 'forgot' : 'signin', { noFocus: true });
+      setMsg(friendly({ message: linkErr }));
+      history.replaceState(null, '', location.pathname + location.search);
+      return;
+    }
+    if (recovering) {
+      if (session) { show('reset'); return; }
+      show('forgot', { noFocus: true });
+      setMsg('This reset link is invalid or has expired. Request a new one.');
+      return;
+    }
+    if (session) { goNext(); return; }   // already signed in
+    show(params.get('view') === 'signup' ? 'signup' : 'signin');
+    if (reason === 'expired') setMsg('Your session ended. Please sign in again.', 'info');
+    else if (reason === 'signed_out') setMsg('You’ve been signed out.', 'info');
+  });
+})();
+</script>
+</body>
+</html>

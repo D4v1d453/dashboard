@@ -18,12 +18,13 @@
 //   3. A light poll (one single-row select every 20 s, only while the
 //      page is visible) as a safety net.
 // Pages redraw in place through onApplied; see cloudSyncRefresh().
+//
+// Auth: uses the signed-in client from auth.js (window.appAuth). Rows are
+// per user — (user_id, key) — and Row Level Security only lets a user see
+// and write their own; sync starts once the session is confirmed.
 // =============================================================
 (function () {
   'use strict';
-  const SUPABASE_URL = 'https://wrkvressribywjmsvmsy.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_vXOAfADTf6WRicVvAdpaXg_rAXJqByV';
-
   const POLL_MS = 20 * 1000;
   const RESUME_THROTTLE_MS = 1500;
 
@@ -76,17 +77,20 @@
     const syncedKeys = (config && config.syncedKeys) || [];
     const syncedPrefixes = (config && config.syncedPrefixes) || [];
     const onApplied = config && config.onApplied;
-    if (!appKey || !window.supabase) return;
-    if (!SUPABASE_URL || !SUPABASE_KEY) return;
-    if (SUPABASE_URL.indexOf('PASTE-') === 0 || SUPABASE_KEY.indexOf('PASTE-') === 0) return;
+    const A = window.appAuth;
+    if (!appKey || !A || !A.client) return;
 
-    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const client = A.client;
+    const uid = () => (A.user ? A.user.id : null);
     let supa = null;            // set once the first pull succeeded
     let channel = null;
     let pushTimer = null, pushInFlight = false;
     let suppressSync = false, lastSyncedJson = null;
     let remoteState = {};       // last-known full row data, including keys other pages own
-    let dirtyOffline = false;   // local edits made before we ever reached the server
+    // Local edits made while the server was unreachable. Only counted after
+    // a connection attempt actually failed: pages also write while loading
+    // (e.g. Main's daily rollover), and those must not overwrite the server.
+    let dirtyOffline = false, initFailed = false;
     let initInFlight = false, pullInFlight = false;
     let lastResume = 0, resubTimer = null, resubDelay = 2000;
 
@@ -127,7 +131,7 @@
     const origRemove = localStorage.removeItem.bind(localStorage);
     function onLocalWrite(k) {
       if (suppressSync || !matches(k)) return;
-      if (!supa) { dirtyOffline = true; return; }
+      if (!supa) { if (initFailed) dirtyOffline = true; return; }
       schedulePush();
     }
     localStorage.setItem = function (k, v) {
@@ -175,36 +179,44 @@
 
     async function pushNow() {
       pushTimer = null;
-      if (!supa) return;
+      if (!supa || !uid()) return;
       const state = buildPayload();
       const json = canon(state);
       if (json === lastSyncedJson) return;
       pushInFlight = true;
       try {
         const { error } = await supa.from('app_state').upsert(
-          { key: appKey, data: state, updated_at: new Date().toISOString() },
-          { onConflict: 'key' }
+          { user_id: uid(), key: appKey, data: state, updated_at: new Date().toISOString() },
+          { onConflict: 'user_id,key' }
         );
         if (!error) { lastSyncedJson = json; remoteState = state; }
       } catch (e) {}
       pushInFlight = false;
     }
     function schedulePush() { clearTimeout(pushTimer); pushTimer = setTimeout(pushNow, 250); }
+    // Save pending edits before auth.js signs out.
+    A.beforeSignOut(async function () {
+      if (!supa) return;
+      clearTimeout(pushTimer);
+      await pushNow();
+    });
     function flushOnUnload() {
       if (!supa) return; // never pulled yet — don't overwrite remote blindly
+      const token = A.accessToken(), userId = uid();
+      if (!token || !userId) return;
       const state = buildPayload();
       const json = canon(state);
       if (json === lastSyncedJson) return;
       try {
-        fetch(SUPABASE_URL + '/rest/v1/app_state?on_conflict=key', {
+        fetch(A.url + '/rest/v1/app_state?on_conflict=user_id,key', {
           method: 'POST',
           headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': 'Bearer ' + SUPABASE_KEY,
+            'apikey': A.key,
+            'Authorization': 'Bearer ' + token,   // the user's session, so RLS applies
             'Content-Type': 'application/json',
             'Prefer': 'resolution=merge-duplicates',
           },
-          body: JSON.stringify({ key: appKey, data: state, updated_at: new Date().toISOString() }),
+          body: JSON.stringify({ user_id: userId, key: appKey, data: state, updated_at: new Date().toISOString() }),
           keepalive: true,
         }).catch(() => {});
         lastSyncedJson = json;
@@ -213,14 +225,15 @@
     }
 
     async function fetchRow() {
-      const { data, error } = await client.from('app_state').select('data').eq('key', appKey).maybeSingle();
+      const { data, error } = await client.from('app_state').select('data')
+        .eq('user_id', uid()).eq('key', appKey).maybeSingle();
       if (error) throw error;
       return data && data.data && typeof data.data === 'object' ? data.data : null;
     }
 
     // First successful contact with the server (retried until it works).
     async function init() {
-      if (supa || initInFlight) return;
+      if (supa || initInFlight || !authReady || !uid()) return;
       initInFlight = true;
       try {
         const remote = await fetchRow();
@@ -241,6 +254,7 @@
         subscribe();
       } catch (e) {
         // Offline / server unreachable — stay local; resume/online/poll retries.
+        initFailed = true;
       } finally { initInFlight = false; }
     }
 
@@ -261,10 +275,12 @@
       if (channel) { try { supa.removeChannel(channel); } catch (e) {} channel = null; }
       const ch = supa.channel('app_state_' + appKey + '_' + Math.random().toString(36).slice(2, 8));
       channel = ch;
+      // Only this user's rows (RLS enforces it server-side as well).
       ch.on('postgres_changes', {
-          event: '*', schema: 'public', table: 'app_state', filter: 'key=eq.' + appKey,
+          event: '*', schema: 'public', table: 'app_state', filter: 'user_id=eq.' + uid(),
         }, (payload) => {
-          if (ch === channel && payload.new && payload.new.data) receive(payload.new.data);
+          if (ch !== channel || !payload.new || payload.new.key !== appKey) return;
+          if (payload.new.data) receive(payload.new.data);
         })
         .subscribe((status) => {
           if (ch !== channel) return; // a replaced channel reporting its own shutdown
@@ -298,7 +314,14 @@
       pull();
     }
 
-    init();
+    // Start once auth.js has confirmed the session (null = offline fallback
+    // with no live session: stay local, the page reloads when back online).
+    let authReady = false;
+    A.ready.then((session) => {
+      if (!session) return;
+      authReady = true;
+      init();
+    });
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) flushOnUnload(); else onResume();
     });

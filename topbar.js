@@ -10,9 +10,7 @@
 (function () {
   'use strict';
 
-  // -------- Supabase config (replace with your own project URL + publishable key) --------
-  const TOPBAR_SUPABASE_URL = 'https://wrkvressribywjmsvmsy.supabase.co';
-  const TOPBAR_SUPABASE_KEY = 'sb_publishable_vXOAfADTf6WRicVvAdpaXg_rAXJqByV';
+  // Supabase access goes through the signed-in client from auth.js.
 
   // -------- CSS --------
   const css = `
@@ -79,6 +77,8 @@
   transition: background 0.15s;
 }
 .topbar-finance-btn:hover { background: rgba(255, 255, 255, 0.08); }
+.topbar-account-btn { color: rgba(255, 255, 255, 0.62); cursor: pointer; font: inherit; padding: 0; }
+.topbar-account-btn:hover { color: #FAFAFA; }
 .topbar-finance-icon {
   font-size: 20px; line-height: 1;
   filter: grayscale(100%) brightness(1.4); opacity: 0.85;
@@ -196,6 +196,9 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
   <a href="finance.html" class="topbar-finance-btn" id="topbarFinance" aria-label="Finance">
     <span class="topbar-finance-icon">📊</span>
   </a>
+  <button class="topbar-finance-btn topbar-account-btn" id="topbarAccount" type="button" aria-label="Account and sign out" title="Sign out">
+    <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+  </button>
 </header>`;
 
   const bottombarHtml = `
@@ -369,13 +372,13 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
     const p = (window.location.pathname || '').toLowerCase();
     return p.endsWith('health.html');
   }
-  let waterClient = null;
+  // Signed-in client + user from auth.js (null until the session is confirmed).
   function getWaterClient() {
-    if (!window.supabase || !TOPBAR_SUPABASE_URL || !TOPBAR_SUPABASE_KEY) return null;
-    if (TOPBAR_SUPABASE_URL.indexOf('PASTE-') === 0) return null;
-    if (!waterClient) waterClient = window.supabase.createClient(TOPBAR_SUPABASE_URL, TOPBAR_SUPABASE_KEY);
-    return waterClient;
+    const A = window.appAuth;
+    if (!A || !A.client || !A.user) return null;
+    return A.client;
   }
+  function userId() { return window.appAuth && window.appAuth.user ? window.appAuth.user.id : null; }
   // Keep the water pill live on pages that don't sync the 'health' row
   // themselves (Health does, via sync.js). Fetches only the water value.
   let lastLocalWaterAt = 0, waterPullInFlight = false;
@@ -388,7 +391,8 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
     waterPullInFlight = true;
     try {
       const { data, error } = await supa
-        .from('app_state').select('water:data->po_water_v1').eq('key', 'health').maybeSingle();
+        .from('app_state').select('water:data->po_water_v1')
+        .eq('user_id', userId()).eq('key', 'health').maybeSingle();
       if (!error && data && data.water && typeof data.water === 'object' &&
           Date.now() - lastLocalWaterAt >= 4000) {
         const incoming = JSON.stringify(data.water);
@@ -405,13 +409,16 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
     const supa = getWaterClient();
     if (!supa) return;
     try {
-      const { data } = await supa
-        .from('app_state').select('data').eq('key', 'health').maybeSingle();
+      const { data, error } = await supa
+        .from('app_state').select('data').eq('user_id', userId()).eq('key', 'health').maybeSingle();
+      // A failed read must never turn into "row is empty": that would
+      // overwrite the Health row (stack etc.) with just the water log.
+      if (error) return;
       const current = (data && data.data) || {};
       const merged = Object.assign({}, current, { po_water_v1: localWater });
       await supa.from('app_state').upsert(
-        { key: 'health', data: merged, updated_at: new Date().toISOString() },
-        { onConflict: 'key' }
+        { user_id: userId(), key: 'health', data: merged, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id,key' }
       );
     } catch (e) {}
   }
@@ -466,6 +473,16 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
     registerServiceWorker();
     const btn = document.getElementById('topbarWaterAdd');
     if (btn) btn.addEventListener('click', (e) => { e.preventDefault(); addWater(); });
+    const acct = document.getElementById('topbarAccount');
+    if (acct) acct.addEventListener('click', async () => {
+      const A = window.appAuth;
+      if (!A) return;
+      const email = A.user && A.user.email ? A.user.email : 'your account';
+      if (!confirm('Sign out of ' + email + '?\n\nData on this device is cleared; everything stays saved in your account.')) return;
+      acct.disabled = true;
+      await A.signOut();
+    });
+    if (window.appAuth && window.appAuth.ready) window.appAuth.ready.then(() => pullWater());
     render();
     lockGestures();
     startModalLock();
